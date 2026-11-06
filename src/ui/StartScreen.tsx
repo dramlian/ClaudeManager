@@ -18,8 +18,8 @@ export function StartScreen({ onOpen, onBrowse, saved, onAddSaved, onRemoveSaved
   return (
     <div className="start">
       <div className="start-card">
-        <div className="start-logo">✻</div>
-        <h1>Claude Code</h1>
+        <div className="start-logo">&gt;_</div>
+        <h1>claude-manager</h1>
         <p className="sub">
           Pick a project folder. Claude runs with <code>--dangerously-skip-permissions</code>.
         </p>
@@ -57,7 +57,9 @@ export function StartScreen({ onOpen, onBrowse, saved, onAddSaved, onRemoveSaved
 
         {recent.length > 0 && (
           <div className="recent">
-            <div className="recent-title">Recent</div>
+            <div className="recent-title">
+              <span>Recent</span>
+            </div>
             {recent.map((f) => (
               <div key={f} className="recent-item" onClick={() => onOpen(f)} title={f}>
                 <span className="recent-name">{f.split(/[\\/]/).filter(Boolean).pop()}</span>

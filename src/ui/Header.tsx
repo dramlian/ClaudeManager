@@ -8,8 +8,8 @@ export function Header({ usage }: Props) {
   return (
     <header className="header">
       <div className="brand">
-        <span className="logo">✻</span>
-        <span className="brand-name">ClaudeManager</span>
+        <span className="logo">&gt;_</span>
+        <span className="brand-name">claude-manager</span>
       </div>
 
       <div className="spacer" />

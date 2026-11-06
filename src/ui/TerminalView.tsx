@@ -45,13 +45,13 @@ export function TerminalView({ tabId, cwd, active, status, ctx, onStatus, onTitl
       allowProposedApi: true,
       scrollback: 10000,
       theme: {
-        background: '#0d0d0f',
-        foreground: '#e6e1dc',
-        cursor: '#d97757',
-        cursorAccent: '#0d0d0f',
-        selectionBackground: '#d9775766',
-        black: '#1a1a1e',
-        brightBlack: '#5c5c66',
+        background: '#0a0f0c',
+        foreground: '#d5e3d9',
+        cursor: '#3ddc84',
+        cursorAccent: '#0a0f0c',
+        selectionBackground: '#3ddc8440',
+        black: '#131c17',
+        brightBlack: '#71897a',
       },
     });
     const fit = new FitAddon();
