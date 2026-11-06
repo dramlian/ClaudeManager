@@ -8,6 +8,7 @@ type Props = {
   onBrowse: () => void;
   onAddSaved: () => void;
   onRemoveSaved: (folder: string) => void;
+  onNewWindow: () => void;
   onClose: () => void;
 };
 
@@ -20,7 +21,7 @@ const FolderIcon = () => (
 );
 
 /** Popover under the tab bar's "+" button. */
-export function NewTabMenu({ currentFolder, saved, onOpen, onBrowse, onAddSaved, onRemoveSaved, onClose }: Props) {
+export function NewTabMenu({ currentFolder, saved, onOpen, onBrowse, onAddSaved, onRemoveSaved, onNewWindow, onClose }: Props) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -98,6 +99,17 @@ export function NewTabMenu({ currentFolder, saved, onOpen, onBrowse, onAddSaved,
           <span className="menu-name">Open other folder…</span>
         </span>
         <kbd>Ctrl+Shift+O</kbd>
+      </button>
+      <button className="menu-item" onClick={choose(onNewWindow)}>
+        <span className="menu-icon">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 5h16v14H4zM4 9h16" />
+          </svg>
+        </span>
+        <span className="menu-text">
+          <span className="menu-name">New window</span>
+        </span>
+        <kbd>Ctrl+Shift+N</kbd>
       </button>
     </div>
   );

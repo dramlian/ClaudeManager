@@ -117,67 +117,92 @@ function isTrustedSender(frameUrl: string | undefined) {
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
 
-  const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 640,
-    minHeight: 400,
-    frame: false,
-    backgroundColor: '#0a0f0c',
-    show: false,
-    webPreferences: {
-      preload: getPreloadPath(),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
-  });
-  win.once('ready-to-show', () => win.show());
-
-  const pushUsage = async () => {
-    const usage = await fetchPlanUsage();
-    if (usage && !win.isDestroyed()) win.webContents.send('usage:update', '', usage);
-  };
-  win.webContents.on('did-finish-load', pushUsage);
-  const usageTimer = setInterval(pushUsage, 5 * 60_000);
-  win.on('closed', () => clearInterval(usageTimer));
-  // Logging in (or out, or a token refresh) rewrites the credentials file: refresh usage right away.
-  // watchFile polls, so it also works when the file doesn't exist yet (not logged in).
-  const creds = credentialsFile();
-  fs.watchFile(creds, { interval: 2000 }, (curr, prev) => {
-    if (curr.mtimeMs !== prev.mtimeMs) pushUsage();
-  });
-  win.on('closed', () => fs.unwatchFile(creds));
-
-  if (isDev()) {
-    win.loadURL('http://localhost:5123');
-  } else {
-    win.loadFile(getUIPath());
-  }
-
-  // Links clicked inside the terminal open in the real browser.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/.test(url)) shell.openExternal(url);
-    return { action: 'deny' };
-  });
-  win.webContents.on('before-input-event', (_e, input) => {
-    if (input.type === 'keyDown' && input.key === 'F12') win.webContents.toggleDevTools();
-  });
-
-  // One Claude process per tab. They all keep running in the background until
-  // their tab is closed or the app quits.
+  // One Claude process per tab. Each belongs to the window showing it and keeps running in the
+  // background until its tab is closed, its window is closed, or the app quits.
   const runtimeDir = ClaudeSession.setupRuntime();
   const sessions = new Map<string, ClaudeSession>();
+  /** Tabs handed to a window that hasn't loaded yet (popped out), keyed by webContents id. */
+  const pendingAdopt = new Map<number, AdoptTab[]>();
   const validId = (id: unknown): id is string => typeof id === 'string' && /^[\w-]{1,40}$/.test(id);
 
-  const guard = <A extends unknown[], R>(fn: (...args: A) => R) =>
-    (event: Electron.IpcMainInvokeEvent | Electron.IpcMainEvent, ...args: A): R | undefined => {
+  // ---------- Plan usage (account-wide, sent to every window) ----------
+  const pushUsage = async (only?: BrowserWindow) => {
+    const usage = await fetchPlanUsage();
+    if (!usage) return;
+    for (const w of only ? [only] : BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('usage:update', '', usage);
+    }
+  };
+  setInterval(() => pushUsage(), 5 * 60_000);
+  // Logging in (or out, or a token refresh) rewrites the credentials file: refresh usage right away.
+  // watchFile polls, so it also works when the file doesn't exist yet (not logged in).
+  fs.watchFile(credentialsFile(), { interval: 2000 }, (curr, prev) => {
+    if (curr.mtimeMs !== prev.mtimeMs) pushUsage();
+  });
+
+  // ---------- Windows ----------
+  const createWindow = (adopt?: AdoptTab[], from?: BrowserWindow | null) => {
+    // Open next to the window it came from, so it's obvious which one is new.
+    const b = from && !from.isDestroyed() && !from.isMaximized() ? from.getBounds() : null;
+    const win = new BrowserWindow({
+      width: b?.width ?? 1200,
+      height: b?.height ?? 800,
+      ...(b && { x: b.x + 40, y: b.y + 40 }),
+      minWidth: 640,
+      minHeight: 400,
+      frame: false,
+      backgroundColor: '#0a0f0c',
+      show: false,
+      webPreferences: {
+        preload: getPreloadPath(),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    const wcId = win.webContents.id;
+    if (adopt?.length) pendingAdopt.set(wcId, adopt);
+
+    win.once('ready-to-show', () => win.show());
+    win.webContents.on('did-finish-load', () => pushUsage(win));
+    // Links clicked inside the terminal open in the real browser.
+    win.webContents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:/.test(url)) shell.openExternal(url);
+      return { action: 'deny' };
+    });
+    win.webContents.on('before-input-event', (_e, input) => {
+      if (input.type === 'keyDown' && input.key === 'F12') win.webContents.toggleDevTools();
+    });
+
+    win.on('closed', () => {
+      // Kill this window's sessions, plus any popped-out tab it never got to pick up.
+      const orphans = new Set((pendingAdopt.get(wcId) ?? []).map((t) => t.id));
+      pendingAdopt.delete(wcId);
+      for (const [id, s] of sessions) {
+        if (s.ownerId === wcId || orphans.has(id)) {
+          s.dispose();
+          sessions.delete(id);
+        }
+      }
+    });
+
+    if (isDev()) win.loadURL('http://localhost:5123');
+    else win.loadFile(getUIPath());
+    return win;
+  };
+
+  type IpcEvent = Electron.IpcMainInvokeEvent | Electron.IpcMainEvent;
+  const winOf = (e: IpcEvent) => BrowserWindow.fromWebContents(e.sender);
+  const guard =
+    <A extends unknown[], R>(fn: (e: IpcEvent, ...args: A) => R) =>
+    (event: IpcEvent, ...args: A): R | undefined => {
       if (!isTrustedSender(event.senderFrame?.url)) return undefined;
-      return fn(...args);
+      return fn(event, ...args);
     };
 
+  // ---------- Sessions ----------
   ipcMain.handle(
     'session:start',
-    guard((tabId: string, cwd: string, cols: number, rows: number) => {
+    guard((e, tabId: string, cwd: string, cols: number, rows: number) => {
       if (!validId(tabId)) return { running: false, cwd, error: 'Invalid tab id' } satisfies SessionStatus;
       if (typeof cwd !== 'string' || !fs.existsSync(cwd)) {
         return { running: false, cwd, error: `Folder not found: ${cwd}` } satisfies SessionStatus;
@@ -185,49 +210,94 @@ app.whenReady().then(() => {
       pushRecent(cwd);
       let s = sessions.get(tabId);
       if (!s) {
-        s = new ClaudeSession(win, tabId, runtimeDir);
+        s = new ClaudeSession(e.sender, tabId, runtimeDir);
         sessions.set(tabId, s);
+      } else {
+        s.attach(e.sender);
       }
       return s.start(cwd, cols, rows);
     })
   );
+  // A window picks up a running session (after a pop-out) instead of starting a new one.
+  ipcMain.handle(
+    'session:attach',
+    guard((e, tabId: string, cols: number, rows: number) => {
+      const s = sessions.get(tabId);
+      if (!s) return null;
+      const snapshot = s.attach(e.sender);
+      s.resize(cols, rows);
+      return snapshot;
+    })
+  );
   ipcMain.handle(
     'session:close',
-    guard((tabId: string) => {
+    guard((_e, tabId: string) => {
       sessions.get(tabId)?.dispose();
       sessions.delete(tabId);
     })
   );
-  ipcMain.on('pty:input', guard((tabId: string, data: string) => sessions.get(tabId)?.write(String(data))));
+  ipcMain.on('pty:input', guard((_e, tabId: string, data: string) => sessions.get(tabId)?.write(String(data))));
   ipcMain.on(
     'pty:resize',
-    guard((tabId: string, cols: number, rows: number) => sessions.get(tabId)?.resize(cols, rows))
+    guard((e, tabId: string, cols: number, rows: number) => {
+      const s = sessions.get(tabId);
+      // Only the window currently showing the session may resize it.
+      if (s && s.ownerId === e.sender.id) s.resize(cols, rows);
+    })
+  );
+
+  // ---------- Windows: new / pop-out ----------
+  ipcMain.on('window:new', guard((e) => createWindow(undefined, winOf(e))));
+  ipcMain.handle(
+    'window:popout',
+    guard((e, tab: AdoptTab) => {
+      const s = tab && validId(tab.id) ? sessions.get(tab.id) : undefined;
+      if (!s || s.ownerId !== e.sender.id) return false;
+      s.detach();
+      createWindow(
+        [{ id: tab.id, cwd: String(tab.cwd), title: typeof tab.title === 'string' ? tab.title : null }],
+        winOf(e)
+      );
+      return true;
+    })
+  );
+  ipcMain.handle(
+    'window:init',
+    guard((e) => {
+      const adopt = pendingAdopt.get(e.sender.id) ?? [];
+      pendingAdopt.delete(e.sender.id);
+      return adopt;
+    })
   );
   ipcMain.on(
     'window:title',
-    guard((title: string) => win.setTitle(String(title).slice(0, 200)))
+    guard((e, title: string) => winOf(e)?.setTitle(String(title).slice(0, 200)))
   );
-
-  ipcMain.handle(
-    'folder:pick',
-    guard(async () => {
-      const res = await dialog.showOpenDialog(win, {
-        title: 'Open a project folder for Claude',
-        properties: ['openDirectory'],
-      });
-      return res.canceled ? null : res.filePaths[0];
+  ipcMain.on(
+    'frame:action',
+    guard((e, action: FrameWindowAction) => {
+      const win = winOf(e);
+      if (!win) return;
+      if (action === 'CLOSE') win.close();
+      if (action === 'MINIMIZE') win.minimize();
+      if (action === 'MAXIMIZE') (win.isMaximized() ? win.unmaximize() : win.maximize());
     })
   );
+
+  // ---------- Folders ----------
+  const pickDir = async (e: IpcEvent, title: string) => {
+    const win = winOf(e);
+    const opts: Electron.OpenDialogOptions = { title, properties: ['openDirectory'] };
+    const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
+    return res.canceled ? null : res.filePaths[0];
+  };
+  ipcMain.handle('folder:pick', guard((e) => pickDir(e, 'Open a project folder for Claude')));
   ipcMain.handle('saved:list', guard(() => readSaved()));
   ipcMain.handle(
     'saved:add',
-    guard(async () => {
-      const res = await dialog.showOpenDialog(win, {
-        title: 'Save a folder to your list',
-        properties: ['openDirectory'],
-      });
+    guard(async (e) => {
+      const folder = await pickDir(e, 'Save a folder to your list');
       const list = readSaved();
-      const folder = res.canceled ? null : res.filePaths[0];
       if (folder && !list.some((f) => f.toLowerCase() === folder.toLowerCase())) {
         list.push(folder);
         writeSaved(list);
@@ -237,42 +307,32 @@ app.whenReady().then(() => {
   );
   ipcMain.handle(
     'saved:remove',
-    guard((folder: string) => {
+    guard((_e, folder: string) => {
       const list = readSaved().filter((f) => f !== folder);
       writeSaved(list);
       return list;
     })
   );
-  ipcMain.handle('clipboard:read', guard(() => clipboard.readText()));
-  ipcMain.on(
-    'clipboard:write',
-    guard((text: string) => {
-      if (typeof text === 'string' && text.length <= 4_000_000) clipboard.writeText(text);
-    })
-  );
-  ipcMain.handle('vscode:open', guard((folder: string) => openInVSCode(folder)));
   ipcMain.handle('folder:recent', guard(() => readRecent()));
   ipcMain.handle(
     'folder:removeRecent',
-    guard((folder: string) => {
+    guard((_e, folder: string) => {
       writeRecent(readRecent().filter((f) => f !== folder));
       return readRecent();
     })
   );
 
+  // ---------- Misc ----------
+  ipcMain.handle('clipboard:read', guard(() => clipboard.readText()));
   ipcMain.on(
-    'frame:action',
-    guard((action: FrameWindowAction) => {
-      if (action === 'CLOSE') win.close();
-      if (action === 'MINIMIZE') win.minimize();
-      if (action === 'MAXIMIZE') (win.isMaximized() ? win.unmaximize() : win.maximize());
+    'clipboard:write',
+    guard((_e, text: string) => {
+      if (typeof text === 'string' && text.length <= 4_000_000) clipboard.writeText(text);
     })
   );
+  ipcMain.handle('vscode:open', guard((_e, folder: string) => openInVSCode(folder)));
 
-  win.on('closed', () => {
-    for (const s of sessions.values()) s.dispose();
-    sessions.clear();
-  });
+  createWindow();
 });
 
 app.on('window-all-closed', () => app.quit());

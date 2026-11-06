@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, type WebContents } from 'electron';
 import type { IPty } from '@lydell/node-pty';
 
 const require = createRequire(import.meta.url);
@@ -78,6 +78,13 @@ export class ClaudeSession {
   private lastContext: ContextInfo = { ...DEFAULT_CONTEXT };
 
   private launcherFile: string;
+  /** Raw terminal output, replayed when the tab moves to another window. */
+  private history: string[] = [];
+  private historyLen = 0;
+  private cwd: string | null = null;
+  private exitCode: number | null | undefined;
+  /** Window the session reports to; null while it is being moved between windows. */
+  private target: WebContents | null;
 
   /** Prepare the shared runtime folder once per app start; returns its path. */
   static setupRuntime(): string {
@@ -89,10 +96,11 @@ export class ClaudeSession {
   }
 
   constructor(
-    private win: BrowserWindow,
+    target: WebContents,
     readonly tabId: string,
     dir: string
   ) {
+    this.target = target;
     const id = `${process.pid}-${tabId}`;
     const scriptFile = path.join(dir, 'statusline.cjs');
     const launcher = path.join(dir, `statusline-${id}.cmd`);
@@ -130,9 +138,43 @@ export class ClaudeSession {
     return this.proc !== null;
   }
 
+  /** webContents id of the owning window, or null while detached. */
+  get ownerId(): number | null {
+    return this.target && !this.target.isDestroyed() ? this.target.id : null;
+  }
+
+  get status(): SessionStatus {
+    return { running: this.running, cwd: this.cwd, ...(this.exitCode !== undefined && { exitCode: this.exitCode }) };
+  }
+
+  /** Stop reporting to the current window (the tab is being moved). */
+  detach() {
+    this.target = null;
+  }
+
+  /** Report to a new window; returns what it needs to rebuild the terminal. */
+  attach(target: WebContents) {
+    this.target = target;
+    this.send('context:update', this.lastContext);
+    return { status: this.status, history: this.history.join(''), ctx: this.lastContext };
+  }
+
+  private record(data: string) {
+    this.history.push(data);
+    this.historyLen += data.length;
+    // Keep roughly the last 4 MB.
+    while (this.historyLen > 4_000_000 && this.history.length > 1) {
+      this.historyLen -= this.history.shift()!.length;
+    }
+  }
+
   start(cwd: string, cols: number, rows: number): SessionStatus {
     this.stop();
     this.resetContext();
+    this.history = [];
+    this.historyLen = 0;
+    this.cwd = cwd;
+    this.exitCode = undefined;
 
     let file: string;
     try {
@@ -161,10 +203,14 @@ export class ClaudeSession {
     });
     this.proc = proc;
 
-    proc.onData((data) => this.send('pty:data', data));
+    proc.onData((data) => {
+      this.record(data);
+      this.send('pty:data', data);
+    });
     proc.onExit(({ exitCode }) => {
       if (this.proc !== proc) return;
       this.proc = null;
+      this.exitCode = exitCode;
       this.send('session:status', { running: false, cwd, exitCode });
     });
 
@@ -268,12 +314,15 @@ export class ClaudeSession {
     const rl = j.rate_limits;
     if (rl && typeof rl === 'object') {
       const usage: PlanUsage = { session: limit(rl.five_hour), week: limit(rl.seven_day) };
-      if (usage.session || usage.week) this.send('usage:update', usage);
+      // Plan usage is account-wide: tell every window.
+      if (usage.session || usage.week) {
+        for (const w of BrowserWindow.getAllWindows()) w.webContents.send('usage:update', '', usage);
+      }
     }
   }
 
   private send(channel: string, payload: unknown) {
-    if (!this.win.isDestroyed()) this.win.webContents.send(channel, this.tabId, payload);
+    if (this.target && !this.target.isDestroyed()) this.target.send(channel, this.tabId, payload);
   }
 }
 

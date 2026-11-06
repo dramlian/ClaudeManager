@@ -68,6 +68,26 @@ export default function App() {
     setActiveId(tab.id);
   }, []);
 
+  // A window opened by "Pop out" adopts the running tab(s) it was handed.
+  useEffect(() => {
+    window.electron.getWindowInit().then((adopt) => {
+      if (!adopt.length) return;
+      const adopted: Tab[] = adopt.map((a) => ({
+        id: a.id,
+        cwd: a.cwd,
+        title: a.title,
+        status: { running: true, cwd: a.cwd },
+        ctx: EMPTY,
+        busy: false,
+        unread: false,
+        gen: 0,
+        attach: true,
+      }));
+      setTabs((ts) => [...ts, ...adopted]);
+      setActiveId(adopted[adopted.length - 1].id);
+    });
+  }, []);
+
   const pickAndOpen = useCallback(async () => {
     const folder = await window.electron.pickFolder();
     if (folder) openTab(folder);
@@ -98,8 +118,7 @@ export default function App() {
     [patch]
   );
 
-  const closeTab = useCallback((id: string) => {
-    window.electron.closeSession(id);
+  const removeTab = useCallback((id: string) => {
     const ts = tabsRef.current;
     const idx = ts.findIndex((t) => t.id === id);
     const rest = ts.filter((t) => t.id !== id);
@@ -110,10 +129,27 @@ export default function App() {
     }
   }, []);
 
+  const closeTab = useCallback(
+    (id: string) => {
+      window.electron.closeSession(id);
+      removeTab(id);
+    },
+    [removeTab]
+  );
+
+  // Move a running conversation into its own window (the Claude process keeps running).
+  const popOutTab = useCallback(
+    async (id: string) => {
+      const t = tabsRef.current.find((x) => x.id === id);
+      if (t && (await window.electron.popOut({ id: t.id, cwd: t.cwd, title: t.title }))) removeTab(id);
+    },
+    [removeTab]
+  );
+
   const restartTab = useCallback(
     (id: string) => {
       setTabs((ts) =>
-        ts.map((t) => (t.id === id ? { ...t, gen: t.gen + 1, ctx: EMPTY, title: null, busy: false } : t))
+        ts.map((t) => (t.id === id ? { ...t, gen: t.gen + 1, ctx: EMPTY, title: null, busy: false, attach: false } : t))
       );
     },
     []
@@ -127,6 +163,7 @@ export default function App() {
       let handled = true;
       if (e.ctrlKey && e.shiftKey && e.code === 'KeyT') newConversation();
       else if (e.ctrlKey && e.shiftKey && e.code === 'KeyO') pickAndOpen();
+      else if (e.ctrlKey && e.shiftKey && e.code === 'KeyN') window.electron.newWindow();
       else if (e.ctrlKey && e.shiftKey && e.code === 'KeyW') activeRef.current && closeTab(activeRef.current);
       else if (e.ctrlKey && e.key === 'Tab' && ts.length > 1)
         activate(ts[(idx + (e.shiftKey ? -1 : 1) + ts.length) % ts.length].id);
@@ -168,6 +205,7 @@ export default function App() {
           onBrowse={pickAndOpen}
           onAddSaved={addSaved}
           onRemoveSaved={removeSaved}
+          onNewWindow={window.electron.newWindow}
         />
       )}
       <main className="content">
@@ -176,6 +214,7 @@ export default function App() {
             key={`${t.id}-${t.gen}`}
             tabId={t.id}
             cwd={t.cwd}
+            attach={!!t.attach}
             active={t.id === activeId}
             status={t.status}
             ctx={t.ctx}
@@ -191,6 +230,7 @@ export default function App() {
               )
             }
             onRestart={() => restartTab(t.id)}
+            onPopOut={() => popOutTab(t.id)}
           />
         ))}
         {tabs.length === 0 && (
@@ -200,6 +240,7 @@ export default function App() {
             saved={saved}
             onAddSaved={addSaved}
             onRemoveSaved={removeSaved}
+            onNewWindow={window.electron.newWindow}
           />
         )}
       </main>

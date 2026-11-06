@@ -27,6 +27,20 @@ type PlanUsage = {
   week: UsageLimit | null;
 };
 
+/** A running tab handed from one window to another. */
+type AdoptTab = {
+  id: string;
+  cwd: string;
+  title: string | null;
+};
+
+type SessionSnapshot = {
+  status: SessionStatus;
+  /** Raw terminal output so far, replayed into the new window's terminal. */
+  history: string;
+  ctx: ContextInfo;
+};
+
 type FrameWindowAction = 'CLOSE' | 'MAXIMIZE' | 'MINIMIZE';
 
 type SessionStatus = {
@@ -42,6 +56,13 @@ interface Window {
   electron: {
     startSession: (tabId: string, cwd: string, cols: number, rows: number) => Promise<SessionStatus>;
     closeSession: (tabId: string) => Promise<void>;
+    /** Pick up a running session (null if it no longer exists). */
+    attachSession: (tabId: string, cols: number, rows: number) => Promise<SessionSnapshot | null>;
+    /** Move a running tab into a new window; resolves false if it couldn't. */
+    popOut: (tab: AdoptTab) => Promise<boolean>;
+    newWindow: () => void;
+    /** Tabs this window should adopt on startup (it was opened by a pop-out). */
+    getWindowInit: () => Promise<AdoptTab[]>;
     writeToPty: (tabId: string, data: string) => void;
     resizePty: (tabId: string, cols: number, rows: number) => void;
     setWindowTitle: (title: string) => void;

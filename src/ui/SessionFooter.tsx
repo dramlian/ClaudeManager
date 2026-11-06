@@ -2,6 +2,7 @@ type Props = {
   ctx: ContextInfo;
   cwd: string;
   running: boolean;
+  onPopOut: () => void;
 };
 
 const fmtTokens = (n: number) =>
@@ -18,7 +19,7 @@ function level(p: number) {
 }
 
 /** Per-conversation status bar shown under each terminal: working folder, model, effort, context usage. */
-export function SessionFooter({ ctx, cwd, running }: Props) {
+export function SessionFooter({ ctx, cwd, running, onPopOut }: Props) {
   const p = ctx.percent;
   // Follow Claude if it changes directory; fall back to the folder the tab was opened in.
   const dir = ctx.currentDir ?? cwd;
@@ -43,6 +44,19 @@ export function SessionFooter({ ctx, cwd, running }: Props) {
           <path d="M17 3l4 2v14l-4 2L7 12zM17 3L3 14l2 2 12-9M17 21L3 10l2-2 12 9" />
         </svg>
         VS Code
+      </button>
+      <button
+        className="footer-btn"
+        title="Move this conversation to its own window (Claude keeps running)"
+        onClick={(e) => {
+          e.stopPropagation();
+          onPopOut();
+        }}
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M14 4h6v6M20 4l-8 8M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+        </svg>
+        Pop out
       </button>
       <span className="stat" title="Model">
         <span className="stat-label">Model</span>

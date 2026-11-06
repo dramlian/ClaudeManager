@@ -14,6 +14,8 @@ export type Tab = {
   unread: boolean;
   /** Bumped on restart to remount the terminal. */
   gen: number;
+  /** Pick up an already-running session (popped out from another window) instead of starting one. */
+  attach?: boolean;
 };
 
 type Props = {
@@ -28,6 +30,7 @@ type Props = {
   onBrowse: () => void;
   onAddSaved: () => void;
   onRemoveSaved: (folder: string) => void;
+  onNewWindow: () => void;
 };
 
 export function TabBar({ tabs, activeId, label, onActivate, onClose, ...menu }: Props) {

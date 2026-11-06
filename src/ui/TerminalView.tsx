@@ -7,6 +7,8 @@ import { SessionFooter } from './SessionFooter';
 type Props = {
   tabId: string;
   cwd: string;
+  /** Pick up a running session instead of starting Claude. */
+  attach: boolean;
   active: boolean;
   status: SessionStatus;
   ctx: ContextInfo;
@@ -15,6 +17,7 @@ type Props = {
   /** hiddenOutput: Claude wrote output while this tab wasn't visible. */
   onBusy: (busy: boolean, hiddenOutput: boolean) => void;
   onRestart: () => void;
+  onPopOut: () => void;
 };
 
 const GENERIC_TITLES = /^(claude( code)?|cmd(\.exe)?|.*\\claude\.exe)$/i;
@@ -25,7 +28,7 @@ function cleanTitle(raw: string): string | null {
   return !t || GENERIC_TITLES.test(t) ? null : t;
 }
 
-export function TerminalView({ tabId, cwd, active, status, ctx, onStatus, onTitle, onBusy, onRestart }: Props) {
+export function TerminalView({ tabId, cwd, attach, active, status, ctx, onStatus, onTitle, onBusy, onRestart, onPopOut }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -169,6 +172,19 @@ export function TerminalView({ tabId, cwd, active, status, ctx, onStatus, onTitl
     // Delay start slightly so React StrictMode's mount/unmount/mount doesn't spawn twice.
     const startTimer = setTimeout(async () => {
       doFit();
+      if (attach) {
+        // Rebuild the screen from the session's recorded output, then carry on live.
+        const snap = await window.electron.attachSession(tabId, term.cols, term.rows);
+        if (disposed) return;
+        if (!snap) {
+          cb.current.onStatus({ running: false, cwd, error: 'This session no longer exists.' });
+          return;
+        }
+        term.write(snap.history);
+        setTimeout(() => (started = true), 1500);
+        cb.current.onStatus(snap.status);
+        return;
+      }
       const s = await window.electron.startSession(tabId, cwd, term.cols, term.rows);
       if (disposed) return;
       setTimeout(() => (started = true), 3000); // skip the startup banner when tracking activity
@@ -208,7 +224,7 @@ export function TerminalView({ tabId, cwd, active, status, ctx, onStatus, onTitl
       <div className="terminal-area">
         <div className="terminal" ref={host} />
       </div>
-      <SessionFooter ctx={ctx} cwd={cwd} running={status.running} />
+      <SessionFooter ctx={ctx} cwd={cwd} running={status.running} onPopOut={onPopOut} />
       {exited && (
         <div className="exit-banner">
           <span>

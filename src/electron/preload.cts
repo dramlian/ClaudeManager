@@ -11,6 +11,10 @@ function on<T>(channel: string, cb: (tabId: string, payload: T) => void) {
 electron.contextBridge.exposeInMainWorld('electron', {
   startSession: (tabId, cwd, cols, rows) => electron.ipcRenderer.invoke('session:start', tabId, cwd, cols, rows),
   closeSession: (tabId) => electron.ipcRenderer.invoke('session:close', tabId),
+  attachSession: (tabId, cols, rows) => electron.ipcRenderer.invoke('session:attach', tabId, cols, rows),
+  popOut: (tab) => electron.ipcRenderer.invoke('window:popout', tab),
+  newWindow: () => electron.ipcRenderer.send('window:new'),
+  getWindowInit: () => electron.ipcRenderer.invoke('window:init'),
   writeToPty: (tabId, data) => electron.ipcRenderer.send('pty:input', tabId, data),
   resizePty: (tabId, cols, rows) => electron.ipcRenderer.send('pty:resize', tabId, cols, rows),
   setWindowTitle: (title) => electron.ipcRenderer.send('window:title', title),

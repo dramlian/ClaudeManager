@@ -6,9 +6,10 @@ type Props = {
   saved: string[];
   onAddSaved: () => void;
   onRemoveSaved: (folder: string) => void;
+  onNewWindow: () => void;
 };
 
-export function StartScreen({ onOpen, onBrowse, saved, onAddSaved, onRemoveSaved }: Props) {
+export function StartScreen({ onOpen, onBrowse, saved, onAddSaved, onRemoveSaved, onNewWindow }: Props) {
   const [recent, setRecent] = useState<string[]>([]);
 
   useEffect(() => {
@@ -25,6 +26,9 @@ export function StartScreen({ onOpen, onBrowse, saved, onAddSaved, onRemoveSaved
         </p>
         <button className="primary" onClick={onBrowse}>
           Open folder…
+        </button>
+        <button className="link-btn" onClick={onNewWindow} title="Ctrl+Shift+N">
+          New window
         </button>
 
         <div className="recent">

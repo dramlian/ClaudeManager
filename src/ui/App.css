@@ -955,3 +955,18 @@ code {
   color: var(--accent);
   background: #3ddc8414;
 }
+
+.link-btn {
+  display: block;
+  margin: 10px auto 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.link-btn:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
