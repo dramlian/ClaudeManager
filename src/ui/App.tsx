@@ -73,6 +73,17 @@ export default function App() {
     if (folder) openTab(folder);
   }, [openTab]);
 
+  // Saved folders, shared by the "+" menu and the start screen.
+  const [saved, setSaved] = useState<string[]>([]);
+  useEffect(() => {
+    window.electron.getSavedFolders().then(setSaved);
+  }, []);
+  const addSaved = useCallback(async () => setSaved(await window.electron.addSavedFolder()), []);
+  const removeSaved = useCallback(
+    async (folder: string) => setSaved(await window.electron.removeSavedFolder(folder)),
+    []
+  );
+
   const newConversation = useCallback(() => {
     const active = tabsRef.current.find((t) => t.id === activeRef.current);
     if (active) openTab(active.cwd);
@@ -143,11 +154,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header
-        usage={usage}
-        onOpenFolder={pickAndOpen}
-        onRestart={active ? () => restartTab(active.id) : undefined}
-      />
+      <Header usage={usage} />
       {tabs.length > 0 && (
         <TabBar
           tabs={tabs}
@@ -155,7 +162,12 @@ export default function App() {
           label={label}
           onActivate={activate}
           onClose={closeTab}
-          onNew={newConversation}
+          currentFolder={active?.cwd ?? null}
+          saved={saved}
+          onOpen={openTab}
+          onBrowse={pickAndOpen}
+          onAddSaved={addSaved}
+          onRemoveSaved={removeSaved}
         />
       )}
       <main className="content">
@@ -181,7 +193,15 @@ export default function App() {
             onRestart={() => restartTab(t.id)}
           />
         ))}
-        {tabs.length === 0 && <StartScreen onOpen={openTab} onBrowse={pickAndOpen} />}
+        {tabs.length === 0 && (
+          <StartScreen
+            onOpen={openTab}
+            onBrowse={pickAndOpen}
+            saved={saved}
+            onAddSaved={addSaved}
+            onRemoveSaved={removeSaved}
+          />
+        )}
       </main>
     </div>
   );

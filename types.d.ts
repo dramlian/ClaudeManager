@@ -49,6 +49,10 @@ interface Window {
     openInVSCode: (folder: string) => Promise<{ ok: boolean; error?: string }>;
     getRecentFolders: () => Promise<string[]>;
     removeRecentFolder: (folder: string) => Promise<string[]>;
+    getSavedFolders: () => Promise<string[]>;
+    /** Opens a folder picker and saves the choice; resolves to the updated list. */
+    addSavedFolder: () => Promise<string[]>;
+    removeSavedFolder: (folder: string) => Promise<string[]>;
     sendFrameAction: (action: FrameWindowAction) => void;
     onPtyData: (cb: (tabId: string, data: string) => void) => UnsubscribeFunction;
     onSessionStatus: (cb: (tabId: string, status: SessionStatus) => void) => UnsubscribeFunction;

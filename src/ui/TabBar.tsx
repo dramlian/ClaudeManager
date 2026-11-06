@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { NewTabMenu } from './NewTabMenu';
+
 export type Tab = {
   id: string;
   cwd: string;
@@ -19,10 +22,16 @@ type Props = {
   label: (t: Tab) => string;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
-  onNew: () => void;
+  currentFolder: string | null;
+  saved: string[];
+  onOpen: (folder: string) => void;
+  onBrowse: () => void;
+  onAddSaved: () => void;
+  onRemoveSaved: (folder: string) => void;
 };
 
-export function TabBar({ tabs, activeId, label, onActivate, onClose, onNew }: Props) {
+export function TabBar({ tabs, activeId, label, onActivate, onClose, ...menu }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <nav className="tabbar">
       <div className="tabs">
@@ -61,11 +70,18 @@ export function TabBar({ tabs, activeId, label, onActivate, onClose, onNew }: Pr
           );
         })}
       </div>
-      <button className="tab-new" onClick={onNew} title="New conversation in this folder (Ctrl+Shift+T)">
-        <svg viewBox="0 0 12 12">
-          <path d="M6 2v8M2 6h8" />
-        </svg>
-      </button>
+      <div className="tab-new-wrap">
+        <button
+          className={`tab-new ${menuOpen ? 'open' : ''}`}
+          onClick={() => setMenuOpen((o) => !o)}
+          title="New session"
+        >
+          <svg viewBox="0 0 12 12">
+            <path d="M6 2v8M2 6h8" />
+          </svg>
+        </button>
+        {menuOpen && <NewTabMenu {...menu} onClose={() => setMenuOpen(false)} />}
+      </div>
     </nav>
   );
 }

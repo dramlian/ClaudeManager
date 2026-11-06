@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react';
 
-type Props = { onOpen: (folder: string) => void; onBrowse: () => void };
+type Props = {
+  onOpen: (folder: string) => void;
+  onBrowse: () => void;
+  saved: string[];
+  onAddSaved: () => void;
+  onRemoveSaved: (folder: string) => void;
+};
 
-export function StartScreen({ onOpen, onBrowse }: Props) {
+export function StartScreen({ onOpen, onBrowse, saved, onAddSaved, onRemoveSaved }: Props) {
   const [recent, setRecent] = useState<string[]>([]);
 
   useEffect(() => {
@@ -20,6 +26,34 @@ export function StartScreen({ onOpen, onBrowse }: Props) {
         <button className="primary" onClick={onBrowse}>
           Open folder…
         </button>
+
+        <div className="recent">
+          <div className="recent-title row">
+            <span>Saved folders</span>
+            <button className="menu-add" onClick={onAddSaved}>
+              + Add
+            </button>
+          </div>
+          {saved.length === 0 && (
+            <div className="menu-empty">Save folders you use often to open them in one click.</div>
+          )}
+          {saved.map((f) => (
+            <div key={f} className="recent-item" onClick={() => onOpen(f)} title={f}>
+              <span className="recent-name">{f.split(/[\\/]/).filter(Boolean).pop()}</span>
+              <span className="recent-path">{f}</span>
+              <button
+                className="recent-remove"
+                title="Remove from saved folders"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRemoveSaved(f);
+                }}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
 
         {recent.length > 0 && (
           <div className="recent">

@@ -23,6 +23,23 @@ function writeRecent(list: string[]) {
   fs.writeFileSync(recentFile(), JSON.stringify(list.slice(0, MAX_RECENT), null, 2));
 }
 
+/** Folders the user pinned; kept even if temporarily missing (e.g. an unplugged drive). */
+const savedFile = () => path.join(app.getPath('userData'), 'saved-folders.json');
+
+function readSaved(): string[] {
+  try {
+    const list = JSON.parse(fs.readFileSync(savedFile(), 'utf8').replace(/^﻿/, ''));
+    return Array.isArray(list) ? list.filter((f) => typeof f === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeSaved(list: string[]) {
+  fs.mkdirSync(path.dirname(savedFile()), { recursive: true });
+  fs.writeFileSync(savedFile(), JSON.stringify(list, null, 2));
+}
+
 function pushRecent(folder: string) {
   writeRecent([folder, ...readRecent().filter((f) => f.toLowerCase() !== folder.toLowerCase())]);
 }
@@ -189,6 +206,31 @@ app.whenReady().then(() => {
         properties: ['openDirectory'],
       });
       return res.canceled ? null : res.filePaths[0];
+    })
+  );
+  ipcMain.handle('saved:list', guard(() => readSaved()));
+  ipcMain.handle(
+    'saved:add',
+    guard(async () => {
+      const res = await dialog.showOpenDialog(win, {
+        title: 'Save a folder to your list',
+        properties: ['openDirectory'],
+      });
+      const list = readSaved();
+      const folder = res.canceled ? null : res.filePaths[0];
+      if (folder && !list.some((f) => f.toLowerCase() === folder.toLowerCase())) {
+        list.push(folder);
+        writeSaved(list);
+      }
+      return list;
+    })
+  );
+  ipcMain.handle(
+    'saved:remove',
+    guard((folder: string) => {
+      const list = readSaved().filter((f) => f !== folder);
+      writeSaved(list);
+      return list;
     })
   );
   ipcMain.handle('vscode:open', guard((folder: string) => openInVSCode(folder)));

@@ -203,6 +203,7 @@ body,
 
 .usage-group {
   display: flex;
+  margin-right: 10px;
   align-items: center;
   gap: 8px;
   font-size: 12px;
@@ -542,6 +543,159 @@ body,
   background: var(--panel-2);
   color: var(--accent-2);
 }
+.tab-new.open {
+  background: var(--panel-2);
+  color: var(--accent-2);
+}
+.tab-new-wrap {
+  position: relative;
+  margin-bottom: 3px;
+}
+.tab-new-wrap .tab-new {
+  margin-bottom: 0;
+}
+
+/* ---------- "+" menu ---------- */
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: 340px;
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px #000a;
+  font-size: 12.5px;
+}
+.menu-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-item:hover {
+  background: var(--panel-2);
+}
+.menu-icon {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--accent-2);
+  font-weight: 600;
+}
+.menu-icon svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+.menu-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.menu-name,
+.menu-path {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.menu-path {
+  color: var(--muted);
+  font-size: 11px;
+}
+.menu kbd {
+  font-family: inherit;
+  font-size: 10.5px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.menu-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--border);
+}
+.menu-header,
+.recent-title.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.menu-header {
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.menu-add {
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--accent-2);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.menu-add:hover {
+  border-color: #d9775766;
+}
+.menu-empty {
+  padding: 6px 8px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.menu-remove {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.menu-item:hover .menu-remove {
+  opacity: 1;
+}
+.menu-remove:hover {
+  background: #ff6b6b22;
+  color: var(--danger);
+}
+.menu-remove svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
 .tab-close svg,
 .tab-new svg {
   width: 10px;
