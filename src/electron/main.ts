@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { execFileSync, spawn } from 'child_process';
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { pathToFileURL } from 'url';
 import { getPreloadPath, getUIPath, isDev } from './pathResolver.js';
@@ -24,6 +25,38 @@ function writeRecent(list: string[]) {
 
 function pushRecent(folder: string) {
   writeRecent([folder, ...readRecent().filter((f) => f.toLowerCase() !== folder.toLowerCase())]);
+}
+
+/** Locate VS Code's Code.exe (user install, system install, or via the `code` shim on PATH). */
+function findVSCode(): string | null {
+  const candidates = [
+    path.join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Microsoft VS Code', 'Code.exe'),
+    path.join(process.env.ProgramFiles ?? 'C:\\Program Files', 'Microsoft VS Code', 'Code.exe'),
+  ];
+  try {
+    for (const shim of execFileSync('where.exe', ['code'], { encoding: 'utf8' }).split(/\r?\n/)) {
+      // <install>\bin\code.cmd -> <install>\Code.exe
+      if (shim.trim()) candidates.push(path.join(path.dirname(path.dirname(shim.trim())), 'Code.exe'));
+    }
+  } catch {
+    /* not on PATH */
+  }
+  return candidates.find((c) => c && fs.existsSync(c)) ?? null;
+}
+
+function openInVSCode(folder: string): { ok: boolean; error?: string } {
+  if (typeof folder !== 'string' || !fs.existsSync(folder)) return { ok: false, error: `Folder not found: ${folder}` };
+  const exe = findVSCode();
+  if (exe) {
+    const env = { ...process.env };
+    delete env.ELECTRON_RUN_AS_NODE;
+    delete env.NODE_ENV;
+    spawn(exe, [folder], { detached: true, stdio: 'ignore', env }).unref();
+    return { ok: true };
+  }
+  // Fall back to VS Code's URL handler (works for any install that registered it).
+  shell.openExternal(`vscode://file/${folder.replace(/\\/g, '/')}`);
+  return { ok: true };
 }
 
 function isTrustedSender(frameUrl: string | undefined) {
@@ -121,6 +154,7 @@ app.whenReady().then(() => {
       return res.canceled ? null : res.filePaths[0];
     })
   );
+  ipcMain.handle('vscode:open', guard((folder: string) => openInVSCode(folder)));
   ipcMain.handle('folder:recent', guard(() => readRecent()));
   ipcMain.handle(
     'folder:removeRecent',

@@ -10,6 +10,7 @@ const EMPTY: ContextInfo = {
   windowSize: null,
   model: null,
   effort: null,
+  currentDir: null,
   costUsd: null,
   sessionId: null,
   linesAdded: null,
@@ -33,6 +34,23 @@ export default function App() {
   }, []);
 
   useEffect(() => window.electron.onContext((id, ctx) => patch(id, { ctx })), [patch]);
+
+  // Plan usage is account-wide: keep the latest report from any tab, cached across restarts.
+  const [usage, setUsage] = useState<PlanUsage | null>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('planUsage') ?? 'null');
+    } catch {
+      return null;
+    }
+  });
+  useEffect(
+    () =>
+      window.electron.onUsage((_id, u) => {
+        setUsage(u);
+        localStorage.setItem('planUsage', JSON.stringify(u));
+      }),
+    []
+  );
   useEffect(() => window.electron.onSessionStatus((id, status) => patch(id, { status, busy: false })), [patch]);
 
   const openTab = useCallback((cwd: string) => {
@@ -126,6 +144,7 @@ export default function App() {
   return (
     <div className="app">
       <Header
+        usage={usage}
         onOpenFolder={pickAndOpen}
         onRestart={active ? () => restartTab(active.id) : undefined}
       />

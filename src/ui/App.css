@@ -201,6 +201,24 @@ body,
   font-size: 11px;
 }
 
+.usage-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.header .usage {
+  -webkit-app-region: no-drag;
+  height: 28px;
+  padding: 0 10px;
+}
+.usage .bar {
+  width: 70px;
+}
+.usage .pct {
+  min-width: 30px;
+}
+
 .actions {
   display: flex;
   gap: 4px;
@@ -343,6 +361,34 @@ body,
   padding: 0 10px;
   border-radius: 7px;
   min-width: 0;
+}
+.footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.footer-btn:hover {
+  color: #4fa6ed;
+  border-color: #4fa6ed66;
+  background: #4fa6ed14;
+}
+.footer-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
 }
 .session-footer .stat,
 .session-footer .context {

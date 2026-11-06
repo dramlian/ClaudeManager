@@ -15,10 +15,12 @@ electron.contextBridge.exposeInMainWorld('electron', {
   resizePty: (tabId, cols, rows) => electron.ipcRenderer.send('pty:resize', tabId, cols, rows),
   setWindowTitle: (title) => electron.ipcRenderer.send('window:title', title),
   pickFolder: () => electron.ipcRenderer.invoke('folder:pick'),
+  openInVSCode: (folder) => electron.ipcRenderer.invoke('vscode:open', folder),
   getRecentFolders: () => electron.ipcRenderer.invoke('folder:recent'),
   removeRecentFolder: (folder) => electron.ipcRenderer.invoke('folder:removeRecent', folder),
   sendFrameAction: (action) => electron.ipcRenderer.send('frame:action', action),
   onPtyData: (cb) => on<string>('pty:data', cb),
   onSessionStatus: (cb) => on<SessionStatus>('session:status', cb),
   onContext: (cb) => on<ContextInfo>('context:update', cb),
+  onUsage: (cb) => on<PlanUsage>('usage:update', cb),
 } satisfies Window['electron']);

@@ -1,9 +1,12 @@
+import { UsageMeter } from './UsageMeter';
+
 type Props = {
+  usage: PlanUsage | null;
   onOpenFolder: () => void;
   onRestart?: () => void;
 };
 
-export function Header({ onOpenFolder, onRestart }: Props) {
+export function Header({ usage, onOpenFolder, onRestart }: Props) {
   return (
     <header className="header">
       <div className="brand">
@@ -12,6 +15,11 @@ export function Header({ onOpenFolder, onRestart }: Props) {
       </div>
 
       <div className="spacer" />
+
+      <div className="usage-group">
+        <UsageMeter label="Session" limit={usage?.session ?? null} />
+        <UsageMeter label="Week" limit={usage?.week ?? null} longWindow />
+      </div>
 
       <div className="actions">
         <button className="icon-btn" onClick={onOpenFolder} title="Open folder in a new tab (Ctrl+Shift+O)">

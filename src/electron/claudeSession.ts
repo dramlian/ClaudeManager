@@ -38,6 +38,7 @@ const DEFAULT_CONTEXT: ContextInfo = {
   windowSize: null,
   model: null,
   effort: null,
+  currentDir: null,
   costUsd: null,
   sessionId: null,
   linesAdded: null,
@@ -256,12 +257,19 @@ export class ClaudeSession {
       windowSize,
       model: j.model?.display_name ?? (modelId || null),
       effort: typeof j.effort?.level === 'string' ? j.effort.level : null,
+      currentDir: j.workspace?.current_dir ?? j.cwd ?? null,
       costUsd: num(j.cost?.total_cost_usd),
       sessionId: j.session_id ?? null,
       linesAdded: num(j.cost?.total_lines_added),
       linesRemoved: num(j.cost?.total_lines_removed),
     };
     this.send('context:update', this.lastContext);
+
+    const rl = j.rate_limits;
+    if (rl && typeof rl === 'object') {
+      const usage: PlanUsage = { session: limit(rl.five_hour), week: limit(rl.seven_day) };
+      if (usage.session || usage.week) this.send('usage:update', usage);
+    }
   }
 
   private send(channel: string, payload: unknown) {
@@ -286,6 +294,17 @@ function sweepStaleFiles(dir: string) {
     }
     if (!alive) fs.rmSync(path.join(dir, name), { force: true });
   }
+}
+
+/** { used_percentage, resets_at } from the status-line JSON -> UsageLimit. */
+function limit(v: any): UsageLimit | null {
+  const percent = num(v?.used_percentage) ?? num(v?.utilization);
+  if (percent === null) return null;
+  let resetsAt: number | null = null;
+  const r = v.resets_at;
+  if (typeof r === 'number' && Number.isFinite(r)) resetsAt = r < 1e12 ? r * 1000 : r; // seconds or ms
+  else if (typeof r === 'string' && !Number.isNaN(Date.parse(r))) resetsAt = Date.parse(r);
+  return { percent: Math.min(100, Math.max(0, percent)), resetsAt };
 }
 
 function num(v: unknown): number | null {
