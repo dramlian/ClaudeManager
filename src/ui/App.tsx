@@ -9,6 +9,7 @@ const EMPTY: ContextInfo = {
   usedTokens: null,
   windowSize: null,
   model: null,
+  effort: null,
   costUsd: null,
   sessionId: null,
   linesAdded: null,
@@ -125,9 +126,6 @@ export default function App() {
   return (
     <div className="app">
       <Header
-        cwd={active?.cwd ?? null}
-        ctx={active?.ctx ?? EMPTY}
-        running={!!active?.status.running}
         onOpenFolder={pickAndOpen}
         onRestart={active ? () => restartTab(active.id) : undefined}
       />
@@ -149,6 +147,7 @@ export default function App() {
             cwd={t.cwd}
             active={t.id === activeId}
             status={t.status}
+            ctx={t.ctx}
             onStatus={(status) => patch(t.id, { status })}
             onTitle={(title) => patch(t.id, { title })}
             onBusy={(busy, hiddenOutput) =>

@@ -2,12 +2,14 @@ import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { SessionFooter } from './SessionFooter';
 
 type Props = {
   tabId: string;
   cwd: string;
   active: boolean;
   status: SessionStatus;
+  ctx: ContextInfo;
   onStatus: (s: SessionStatus) => void;
   onTitle: (title: string | null) => void;
   /** hiddenOutput: Claude wrote output while this tab wasn't visible. */
@@ -23,7 +25,7 @@ function cleanTitle(raw: string): string | null {
   return !t || GENERIC_TITLES.test(t) ? null : t;
 }
 
-export function TerminalView({ tabId, cwd, active, status, onStatus, onTitle, onBusy, onRestart }: Props) {
+export function TerminalView({ tabId, cwd, active, status, ctx, onStatus, onTitle, onBusy, onRestart }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -152,7 +154,10 @@ export function TerminalView({ tabId, cwd, active, status, onStatus, onTitle, on
 
   return (
     <div className={`terminal-wrap ${active ? 'active' : ''}`} onClick={() => termRef.current?.focus()}>
-      <div className="terminal" ref={host} />
+      <div className="terminal-area">
+        <div className="terminal" ref={host} />
+      </div>
+      <SessionFooter ctx={ctx} cwd={cwd} running={status.running} />
       {exited && (
         <div className="exit-banner">
           <span>

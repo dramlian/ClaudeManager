@@ -10,6 +10,9 @@
   --ok: #5fd38d;
   --warn: #f2c14e;
   --danger: #ff6b6b;
+  /* Outline tying the active tab to its terminal + footer. */
+  --frame: #d977575c;
+  --gutter: #101013;
   font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
   color: var(--text);
   background: var(--bg);
@@ -263,13 +266,19 @@ body,
   flex: 1;
   min-height: 0;
   position: relative;
+  background: var(--gutter);
 }
 
 /* Every tab's terminal stays mounted (and its Claude process alive); only the active one is visible. */
 .terminal-wrap {
   position: absolute;
-  inset: 0;
-  padding: 10px 4px 6px 14px;
+  inset: 0 8px 8px;
+  border: 1px solid var(--frame);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   visibility: hidden;
   z-index: 0;
@@ -277,6 +286,72 @@ body,
 .terminal-wrap.active {
   visibility: visible;
   z-index: 1;
+}
+
+/* xterm's fit addon measures this box, so padding lives here rather than on .terminal. */
+.terminal-area {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 4px 6px 14px;
+}
+
+/* ---------- Per-conversation footer ---------- */
+.session-footer {
+  height: 38px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 0 14px;
+  font-size: 12px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  user-select: none;
+}
+.stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  cursor: default;
+}
+.stat-label,
+.context-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+}
+.stat-value {
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.stat-value.model {
+  color: var(--accent-2);
+  text-transform: none;
+}
+.stat-value.idle {
+  color: var(--muted);
+  font-weight: 400;
+}
+.session-footer .crumb {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
+  min-width: 0;
+}
+.session-footer .stat,
+.session-footer .context {
+  flex-shrink: 0;
+}
+.session-footer .context {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 7px;
 }
 
 /* ---------- Tab bar ---------- */
@@ -287,9 +362,19 @@ body,
   align-items: flex-end;
   gap: 4px;
   padding: 0 8px;
-  background: #101013;
-  border-bottom: 1px solid var(--border);
+  position: relative;
+  background: var(--gutter);
   user-select: none;
+}
+/* Top edge of the frame; the active tab covers it so the tab opens into its window. */
+.tabbar::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 1px;
+  background: var(--frame);
 }
 .tabs {
   display: flex;
@@ -325,10 +410,10 @@ body,
 }
 .tab.active {
   background: var(--bg);
-  border-color: var(--border);
+  border-color: var(--frame);
   color: var(--text);
-  margin-bottom: -1px;
   height: 31px;
+  z-index: 1;
 }
 .tab.active::before {
   content: '';
@@ -436,7 +521,7 @@ body,
 .exit-banner {
   position: absolute;
   left: 50%;
-  bottom: 24px;
+  bottom: 62px;
   transform: translateX(-50%);
   display: flex;
   align-items: center;

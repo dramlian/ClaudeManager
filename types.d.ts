@@ -4,6 +4,8 @@ type ContextInfo = {
   usedTokens: number | null;
   windowSize: number | null;
   model: string | null;
+  /** Reasoning effort level, e.g. "medium". */
+  effort: string | null;
   costUsd: number | null;
   sessionId: string | null;
   linesAdded: number | null;
