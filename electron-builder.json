@@ -1,0 +1,19 @@
+{
+  "appId": "com.jankovdamian.claude-manager",
+  "productName": "ClaudeManager",
+  "files": ["dist-electron", "dist-react"],
+  "npmRebuild": false,
+  "asarUnpack": ["node_modules/@lydell/**"],
+  "icon": "./src/assets/icon.png",
+  "win": {
+    "target": ["portable", "nsis"]
+  },
+  "portable": {
+    "artifactName": "ClaudeManager-${version}-portable.exe"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "artifactName": "ClaudeManager-${version}-setup.exe"
+  }
+}
