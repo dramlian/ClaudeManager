@@ -151,7 +151,7 @@ app.whenReady().then(() => {
       minWidth: 640,
       minHeight: 400,
       frame: false,
-      backgroundColor: '#0a0f0c',
+      backgroundColor: '#0a1214',
       show: false,
       webPreferences: {
         preload: getPreloadPath(),

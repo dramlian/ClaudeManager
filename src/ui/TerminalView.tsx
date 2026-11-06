@@ -20,6 +20,29 @@ type Props = {
   onPopOut: () => void;
 };
 
+/**
+ * Claude paints some areas with a truecolor pure-black background, which shows up as black
+ * bars on our tinted theme. Turn exactly that colour into the default background.
+ */
+const SGR = /\x1b\[([0-9;]*)m/g;
+function tintSgr(_m: string, params: string) {
+  const p = params.split(';');
+  const out: string[] = [];
+  for (let i = 0; i < p.length; i++) {
+    // Extended colours: copy 38/48;5;n and 38/48;2;r;g;b as a unit so their numbers aren't misread.
+    if ((p[i] === '38' || p[i] === '48') && p[i + 1] === '5') {
+      out.push(...p.slice(i, i + 3));
+      i += 2;
+    } else if ((p[i] === '38' || p[i] === '48') && p[i + 1] === '2') {
+      const isBlackBg = p[i] === '48' && p[i + 2] === '0' && p[i + 3] === '0' && p[i + 4] === '0';
+      out.push(...(isBlackBg ? ['49'] : p.slice(i, i + 5)));
+      i += 4;
+    } else out.push(p[i]);
+  }
+  return `\x1b[${out.join(';')}m`;
+}
+const tint = (d: string) => (d.includes('48;2;0;0;0') ? d.replace(SGR, tintSgr) : d);
+
 const GENERIC_TITLES = /^(claude( code)?|cmd(\.exe)?|.*\\claude\.exe)$/i;
 
 /** Claude puts the conversation topic in the terminal title, prefixed by a spinner glyph. */
@@ -54,13 +77,13 @@ export function TerminalView({ tabId, cwd, attach, active, status, ctx, onStatus
         allowNonHttpProtocols: false,
       },
       theme: {
-        background: '#0a0f0c',
-        foreground: '#d5e3d9',
-        cursor: '#3ddc84',
-        cursorAccent: '#0a0f0c',
-        selectionBackground: '#3ddc8440',
-        black: '#131c17',
-        brightBlack: '#71897a',
+        background: '#0a1214',
+        foreground: '#d8e6dc',
+        cursor: '#ff6b35',
+        cursorAccent: '#0a1214',
+        selectionBackground: '#46d2bf40',
+        black: '#122123',
+        brightBlack: '#6f8f8a',
       },
     });
     const fit = new FitAddon();
@@ -146,7 +169,7 @@ export function TerminalView({ tabId, cwd, attach, active, status, ctx, onStatus
     let lastEcho = 0;
     const offData = window.electron.onPtyData((id, d) => {
       if (id !== tabId) return;
-      term.write(d);
+      term.write(tint(d));
       // Ignore the redraw caused by our own keystrokes/resizes.
       if (started && performance.now() - lastEcho > 250) markActivity(d.length);
     });
@@ -180,7 +203,7 @@ export function TerminalView({ tabId, cwd, attach, active, status, ctx, onStatus
           cb.current.onStatus({ running: false, cwd, error: 'This session no longer exists.' });
           return;
         }
-        term.write(snap.history);
+        term.write(tint(snap.history));
         setTimeout(() => (started = true), 1500);
         cb.current.onStatus(snap.status);
         return;

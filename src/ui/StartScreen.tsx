@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Forest } from './Forest';
 
 type Props = {
   onOpen: (folder: string) => void;
@@ -18,6 +19,7 @@ export function StartScreen({ onOpen, onBrowse, saved, onAddSaved, onRemoveSaved
 
   return (
     <div className="start">
+      <Forest />
       <div className="start-card">
         <div className="start-logo">&gt;_</div>
         <h1>claude-manager</h1>
