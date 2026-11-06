@@ -297,7 +297,7 @@ function sweepStaleFiles(dir: string) {
 }
 
 /** { used_percentage, resets_at } from the status-line JSON -> UsageLimit. */
-function limit(v: any): UsageLimit | null {
+export function limit(v: any): UsageLimit | null {
   const percent = num(v?.used_percentage) ?? num(v?.utilization);
   if (percent === null) return null;
   let resetsAt: number | null = null;

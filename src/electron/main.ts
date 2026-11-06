@@ -4,7 +4,7 @@ import { execFileSync, spawn } from 'child_process';
 import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { pathToFileURL } from 'url';
 import { getPreloadPath, getUIPath, isDev } from './pathResolver.js';
-import { ClaudeSession } from './claudeSession.js';
+import { ClaudeSession, limit } from './claudeSession.js';
 
 const MAX_RECENT = 8;
 const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
@@ -59,6 +59,35 @@ function openInVSCode(folder: string): { ok: boolean; error?: string } {
   return { ok: true };
 }
 
+/**
+ * Plan usage, fetched the same way Claude Code's /usage does: the user's own OAuth token
+ * (written by `claude` login) against Anthropic's usage endpoint. Lets the title bar show
+ * usage at startup instead of waiting for the first reply. We never refresh the token
+ * ourselves; if it is expired we just skip until Claude Code refreshes it.
+ */
+async function fetchPlanUsage(): Promise<PlanUsage | null> {
+  try {
+    const dir = process.env.CLAUDE_CONFIG_DIR || path.join(app.getPath('home'), '.claude');
+    const creds = JSON.parse(fs.readFileSync(path.join(dir, '.credentials.json'), 'utf8'));
+    const oauth = creds?.claudeAiOauth;
+    if (!oauth?.accessToken || (oauth.expiresAt && oauth.expiresAt < Date.now())) return null;
+    const res = await fetch('https://api.anthropic.com/api/oauth/usage', {
+      headers: {
+        Authorization: `Bearer ${oauth.accessToken}`,
+        'anthropic-beta': 'oauth-2025-04-20',
+        'User-Agent': 'ClaudeManager',
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    const usage: PlanUsage = { session: limit(j.five_hour), week: limit(j.seven_day) };
+    return usage.session || usage.week ? usage : null;
+  } catch {
+    return null;
+  }
+}
+
 function isTrustedSender(frameUrl: string | undefined) {
   if (!frameUrl) return false;
   if (isDev()) return new URL(frameUrl).host === 'localhost:5123';
@@ -83,6 +112,14 @@ app.whenReady().then(() => {
     },
   });
   win.once('ready-to-show', () => win.show());
+
+  const pushUsage = async () => {
+    const usage = await fetchPlanUsage();
+    if (usage && !win.isDestroyed()) win.webContents.send('usage:update', '', usage);
+  };
+  win.webContents.on('did-finish-load', pushUsage);
+  const usageTimer = setInterval(pushUsage, 5 * 60_000);
+  win.on('closed', () => clearInterval(usageTimer));
 
   if (isDev()) {
     win.loadURL('http://localhost:5123');
