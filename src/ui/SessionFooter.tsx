@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 type Props = {
   ctx: ContextInfo;
   cwd: string;
@@ -25,6 +27,22 @@ export function SessionFooter({ ctx, cwd, running, onPopOut }: Props) {
   const dir = ctx.currentDir ?? cwd;
   const folderName = dir.split(/[\\/]/).filter(Boolean).pop() ?? dir;
 
+  // Git branch of the working folder; re-checked every few seconds to catch checkouts.
+  const [branch, setBranch] = useState<GitBranch | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const check = () =>
+      window.electron.getGitBranch(dir).then((b) => {
+        if (alive) setBranch((prev) => (prev?.name === b?.name && prev?.detached === b?.detached ? prev : b));
+      });
+    check();
+    const id = setInterval(check, 3000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [dir]);
+
   return (
     <footer className="session-footer">
       <span className="crumb" title={dir}>
@@ -32,6 +50,17 @@ export function SessionFooter({ ctx, cwd, running, onPopOut }: Props) {
         <span className="crumb-name">{folderName}</span>
         <span className="crumb-path">{dir}</span>
       </span>
+      {branch && (
+        <span
+          className={`stat branch ${branch.detached ? 'detached' : ''}`}
+          title={branch.detached ? `Detached HEAD at ${branch.name}` : `Git branch: ${branch.name}`}
+        >
+          <svg viewBox="0 0 24 24">
+            <path d="M6 3v12M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9" />
+          </svg>
+          <span className="stat-value">{branch.name}</span>
+        </span>
+      )}
       <button
         className="footer-btn"
         title={`Open ${dir} in VS Code`}

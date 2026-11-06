@@ -41,6 +41,12 @@ type SessionSnapshot = {
   ctx: ContextInfo;
 };
 
+type GitBranch = {
+  /** Branch name, or the short commit hash when HEAD is detached. */
+  name: string;
+  detached: boolean;
+};
+
 type FrameWindowAction = 'CLOSE' | 'MAXIMIZE' | 'MINIMIZE';
 
 type SessionStatus = {
@@ -70,6 +76,8 @@ interface Window {
     clipboardRead: () => Promise<string>;
     clipboardWrite: (text: string) => void;
     openInVSCode: (folder: string) => Promise<{ ok: boolean; error?: string }>;
+    /** null when the folder is not inside a git repo. */
+    getGitBranch: (dir: string) => Promise<GitBranch | null>;
     getRecentFolders: () => Promise<string[]>;
     removeRecentFolder: (folder: string) => Promise<string[]>;
     getSavedFolders: () => Promise<string[]>;

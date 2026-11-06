@@ -1084,3 +1084,30 @@ code {
 .xterm .xterm-viewport {
   background-color: var(--bg) !important;
 }
+
+/* Git branch chip in the footer */
+.session-footer .branch {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 260px;
+  gap: 6px;
+}
+.branch svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.branch .stat-value {
+  text-transform: none;
+  color: var(--text) !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.branch.detached .stat-value {
+  color: var(--warn) !important;
+}

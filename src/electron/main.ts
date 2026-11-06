@@ -61,6 +61,36 @@ function findVSCode(): string | null {
   return candidates.find((c) => c && fs.existsSync(c)) ?? null;
 }
 
+/**
+ * Current git branch of the repo containing `dir`, read straight from HEAD (no git binary needed).
+ * Handles worktrees/submodules (where .git is a file pointing elsewhere) and detached HEAD.
+ */
+function gitBranch(dir: string): GitBranch | null {
+  if (typeof dir !== 'string' || !dir) return null;
+  let p = path.resolve(dir);
+  for (;;) {
+    const dotGit = path.join(p, '.git');
+    try {
+      const st = fs.statSync(dotGit);
+      let gitDir = dotGit;
+      if (st.isFile()) {
+        const m = fs.readFileSync(dotGit, 'utf8').match(/^gitdir:\s*(.+)$/m);
+        if (!m) return null;
+        gitDir = path.resolve(p, m[1].trim());
+      }
+      const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
+      const ref = head.match(/^ref:\s*refs\/heads\/(.+)$/);
+      if (ref) return { name: ref[1], detached: false };
+      return /^[0-9a-f]{7,}$/i.test(head) ? { name: head.slice(0, 7), detached: true } : null;
+    } catch {
+      /* no .git here: keep walking up */
+    }
+    const parent = path.dirname(p);
+    if (parent === p) return null;
+    p = parent;
+  }
+}
+
 function openInVSCode(folder: string): { ok: boolean; error?: string } {
   if (typeof folder !== 'string' || !fs.existsSync(folder)) return { ok: false, error: `Folder not found: ${folder}` };
   const exe = findVSCode();
@@ -330,6 +360,7 @@ app.whenReady().then(() => {
       if (typeof text === 'string' && text.length <= 4_000_000) clipboard.writeText(text);
     })
   );
+  ipcMain.handle('git:branch', guard((_e, dir: string) => gitBranch(dir)));
   ipcMain.handle('vscode:open', guard((_e, folder: string) => openInVSCode(folder)));
 
   createWindow();
