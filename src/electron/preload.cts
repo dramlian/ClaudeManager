@@ -15,6 +15,8 @@ electron.contextBridge.exposeInMainWorld('electron', {
   resizePty: (tabId, cols, rows) => electron.ipcRenderer.send('pty:resize', tabId, cols, rows),
   setWindowTitle: (title) => electron.ipcRenderer.send('window:title', title),
   pickFolder: () => electron.ipcRenderer.invoke('folder:pick'),
+  clipboardRead: () => electron.ipcRenderer.invoke('clipboard:read'),
+  clipboardWrite: (text) => electron.ipcRenderer.send('clipboard:write', text),
   openInVSCode: (folder) => electron.ipcRenderer.invoke('vscode:open', folder),
   getRecentFolders: () => electron.ipcRenderer.invoke('folder:recent'),
   removeRecentFolder: (folder) => electron.ipcRenderer.invoke('folder:removeRecent', folder),

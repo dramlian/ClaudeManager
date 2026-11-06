@@ -44,6 +44,12 @@ export function TerminalView({ tabId, cwd, active, status, ctx, onStatus, onTitl
       cursorBlink: true,
       allowProposedApi: true,
       scrollback: 10000,
+      // OSC 8 hyperlinks (Claude's login URL is one, wrapped over several lines). xterm's default
+      // handler pops a confirm() and an empty window.open(), which the main process blocks.
+      linkHandler: {
+        activate: (_e, uri) => window.open(uri),
+        allowNonHttpProtocols: false,
+      },
       theme: {
         background: '#0a0f0c',
         foreground: '#d5e3d9',
@@ -61,12 +67,55 @@ export function TerminalView({ tabId, cwd, active, status, ctx, onStatus, onTitl
     termRef.current = term;
     fitRef.current = fit;
 
-    // Ctrl+C copies when text is selected; otherwise it reaches Claude as an interrupt.
+    const copySelection = () => {
+      window.electron.clipboardWrite(term.getSelection());
+      term.clearSelection();
+    };
+    // Paste text through xterm so bracketed-paste mode is respected. With no text on the
+    // clipboard, pass Ctrl+V through so Claude can try its own (image) paste.
+    const paste = async () => {
+      const text = await window.electron.clipboardRead();
+      if (disposed) return;
+      if (text) term.paste(text);
+      else window.electron.writeToPty(tabId, '\x16');
+    };
+
     term.attachCustomKeyEventHandler((e) => {
-      if (e.type === 'keydown' && e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'c' && term.hasSelection()) {
-        navigator.clipboard.writeText(term.getSelection());
-        term.clearSelection();
+      if (e.type !== 'keydown' || !e.ctrlKey || e.altKey) return true;
+      const key = e.key.toLowerCase();
+      // Ctrl+C copies when text is selected; otherwise it reaches Claude as an interrupt.
+      if (key === 'c' && (e.shiftKey || term.hasSelection())) {
+        e.preventDefault();
+        if (term.hasSelection()) copySelection();
         return false;
+      }
+      // Ctrl+V / Ctrl+Shift+V paste (e.g. the login code). preventDefault stops a second, native paste.
+      if (key === 'v') {
+        e.preventDefault();
+        paste();
+        return false;
+      }
+      return true;
+    });
+
+    // Right-click: copy if something is selected, otherwise paste (like Windows Terminal).
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      if (term.hasSelection()) copySelection();
+      else paste();
+    };
+    const hostEl = host.current!;
+    hostEl.addEventListener('contextmenu', onContextMenu);
+
+    // OSC 52 clipboard writes: Claude's "c to copy" on the login URL (and /copy) use this.
+    const osc52 = term.parser.registerOscHandler(52, (data) => {
+      const b64 = data.slice(data.indexOf(';') + 1);
+      if (!b64 || b64 === '?' || b64.length > 4_000_000) return true; // ignore clipboard *reads*
+      try {
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        window.electron.clipboardWrite(new TextDecoder().decode(bytes));
+      } catch {
+        /* malformed base64 */
       }
       return true;
     });
@@ -135,6 +184,8 @@ export function TerminalView({ tabId, cwd, active, status, ctx, onStatus, onTitl
       offData();
       input.dispose();
       title.dispose();
+      osc52.dispose();
+      hostEl.removeEventListener('contextmenu', onContextMenu);
       term.dispose();
       termRef.current = null;
     };

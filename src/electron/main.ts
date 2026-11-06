@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { execFileSync, spawn } from 'child_process';
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
 import { pathToFileURL } from 'url';
 import { getPreloadPath, getUIPath, isDev } from './pathResolver.js';
 import { ClaudeSession, limit } from './claudeSession.js';
@@ -82,10 +82,13 @@ function openInVSCode(folder: string): { ok: boolean; error?: string } {
  * usage at startup instead of waiting for the first reply. We never refresh the token
  * ourselves; if it is expired we just skip until Claude Code refreshes it.
  */
+/** Where Claude Code stores its login (OAuth) tokens on Windows/Linux. */
+const credentialsFile = () =>
+  path.join(process.env.CLAUDE_CONFIG_DIR || path.join(app.getPath('home'), '.claude'), '.credentials.json');
+
 async function fetchPlanUsage(): Promise<PlanUsage | null> {
   try {
-    const dir = process.env.CLAUDE_CONFIG_DIR || path.join(app.getPath('home'), '.claude');
-    const creds = JSON.parse(fs.readFileSync(path.join(dir, '.credentials.json'), 'utf8'));
+    const creds = JSON.parse(fs.readFileSync(credentialsFile(), 'utf8'));
     const oauth = creds?.claudeAiOauth;
     if (!oauth?.accessToken || (oauth.expiresAt && oauth.expiresAt < Date.now())) return null;
     const res = await fetch('https://api.anthropic.com/api/oauth/usage', {
@@ -137,6 +140,13 @@ app.whenReady().then(() => {
   win.webContents.on('did-finish-load', pushUsage);
   const usageTimer = setInterval(pushUsage, 5 * 60_000);
   win.on('closed', () => clearInterval(usageTimer));
+  // Logging in (or out, or a token refresh) rewrites the credentials file: refresh usage right away.
+  // watchFile polls, so it also works when the file doesn't exist yet (not logged in).
+  const creds = credentialsFile();
+  fs.watchFile(creds, { interval: 2000 }, (curr, prev) => {
+    if (curr.mtimeMs !== prev.mtimeMs) pushUsage();
+  });
+  win.on('closed', () => fs.unwatchFile(creds));
 
   if (isDev()) {
     win.loadURL('http://localhost:5123');
@@ -231,6 +241,13 @@ app.whenReady().then(() => {
       const list = readSaved().filter((f) => f !== folder);
       writeSaved(list);
       return list;
+    })
+  );
+  ipcMain.handle('clipboard:read', guard(() => clipboard.readText()));
+  ipcMain.on(
+    'clipboard:write',
+    guard((text: string) => {
+      if (typeof text === 'string' && text.length <= 4_000_000) clipboard.writeText(text);
     })
   );
   ipcMain.handle('vscode:open', guard((folder: string) => openInVSCode(folder)));

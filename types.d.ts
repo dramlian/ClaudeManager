@@ -46,6 +46,8 @@ interface Window {
     resizePty: (tabId: string, cols: number, rows: number) => void;
     setWindowTitle: (title: string) => void;
     pickFolder: () => Promise<string | null>;
+    clipboardRead: () => Promise<string>;
+    clipboardWrite: (text: string) => void;
     openInVSCode: (folder: string) => Promise<{ ok: boolean; error?: string }>;
     getRecentFolders: () => Promise<string[]>;
     removeRecentFolder: (folder: string) => Promise<string[]>;
