@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { RemoteDialog } from './RemoteDialog';
 
 type Props = {
   ctx: ContextInfo;
   cwd: string;
   running: boolean;
+  remote: RemoteInfo | null;
   onPopOut: () => void;
 };
 
@@ -21,7 +23,9 @@ function level(p: number) {
 }
 
 /** Per-conversation status bar shown under each terminal: working folder, model, effort, context usage. */
-export function SessionFooter({ ctx, cwd, running, onPopOut }: Props) {
+export function SessionFooter({ ctx, cwd, running, remote, onPopOut }: Props) {
+  const [showRemote, setShowRemote] = useState(false);
+  const closeRemote = useCallback(() => setShowRemote(false), []);
   const p = ctx.percent;
   // Follow Claude if it changes directory; fall back to the folder the tab was opened in.
   const dir = ctx.currentDir ?? cwd;
@@ -87,6 +91,21 @@ export function SessionFooter({ ctx, cwd, running, onPopOut }: Props) {
         </svg>
         Pop out
       </button>
+      <button
+        className={`footer-btn remote-btn ${remote ? 'ready' : ''}`}
+        title={remote ? 'Show a QR code to continue this conversation on your phone' : 'Remote Control is connecting…'}
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowRemote(true);
+        }}
+      >
+        <svg viewBox="0 0 24 24">
+          <path d="M8 2h8a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM11 18h2" />
+        </svg>
+        Remote
+        <span className="remote-dot" />
+      </button>
+      {showRemote && <RemoteDialog remote={remote} running={running} folderName={folderName} onClose={closeRemote} />}
       <span className="stat" title="Model">
         <span className="stat-label">Model</span>
         <span className={`stat-value model ${ctx.model ? '' : 'idle'}`}>{ctx.model ?? '—'}</span>

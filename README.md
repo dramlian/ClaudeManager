@@ -15,6 +15,11 @@ React + Vite UI in `src/ui`, Electron main/preload in `src/electron`.
   JSON to a state file that the main process watches. Percent = `current_usage` tokens / `context_window_size`.
   Your own `~/.claude/settings.json` still applies; only `statusLine` is overridden inside the app.
 
+- Remote access: every session starts with `--remote-control`. The main process picks the session's
+  `claude.ai/code/session_…` link out of the terminal output and pre-renders a QR code (`qrcode`) as soon as it
+  appears. The footer's **Remote** button (dot turns teal once the link is ready) shows it in an overlay that never
+  touches the terminal, so it opens instantly even while Claude is busy. Needs a claude.ai subscription login.
+
 ## Scripts
 
 | command            | what                                                     |

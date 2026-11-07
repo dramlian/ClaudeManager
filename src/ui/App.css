@@ -1111,3 +1111,129 @@ code {
 .branch.detached .stat-value {
   color: var(--warn) !important;
 }
+
+/* Remote Control button + QR dialog */
+.remote-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--muted);
+  opacity: 0.5;
+}
+.remote-btn.ready .remote-dot {
+  background: var(--accent);
+  opacity: 1;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #050a0bcc;
+}
+.modal {
+  width: min(340px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 14px 16px 16px;
+  background: var(--panel);
+  border: 2px solid var(--border-hi);
+  box-shadow: 6px 6px 0 #000;
+  font-size: 12px;
+}
+.modal-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.modal-title {
+  color: var(--accent-2);
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.modal-sub {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.modal-x {
+  align-self: center;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.modal-x:hover,
+.modal-x:focus-visible {
+  color: var(--neon);
+  border-color: var(--neon);
+  outline: none;
+}
+.modal-x svg {
+  width: 9px;
+  height: 9px;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.qr-frame {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  background: #fff;
+  border: 2px solid var(--border-hi);
+}
+.qr-frame img {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+.qr-frame.empty {
+  background: var(--panel-2);
+}
+.qr-wait {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+}
+.qr-wait small {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.modal-hint {
+  margin: 12px 0 8px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.remote-url {
+  padding: 6px 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.modal-actions .footer-btn {
+  flex: 1;
+  justify-content: center;
+}

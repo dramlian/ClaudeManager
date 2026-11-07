@@ -34,11 +34,19 @@ type AdoptTab = {
   title: string | null;
 };
 
+/** Remote Control link for a session (open in claude.ai or the Claude app), QR pre-rendered. */
+type RemoteInfo = {
+  url: string;
+  /** SVG markup of the QR code; empty while it is still being generated. */
+  qrSvg: string;
+};
+
 type SessionSnapshot = {
   status: SessionStatus;
   /** Raw terminal output so far, replayed into the new window's terminal. */
   history: string;
   ctx: ContextInfo;
+  remote: RemoteInfo | null;
 };
 
 type GitBranch = {
@@ -89,5 +97,7 @@ interface Window {
     onSessionStatus: (cb: (tabId: string, status: SessionStatus) => void) => UnsubscribeFunction;
     onContext: (cb: (tabId: string, ctx: ContextInfo) => void) => UnsubscribeFunction;
     onUsage: (cb: (tabId: string, usage: PlanUsage) => void) => UnsubscribeFunction;
+    /** Remote Control link became available (null again after a restart). */
+    onRemote: (cb: (tabId: string, remote: RemoteInfo | null) => void) => UnsubscribeFunction;
   };
 }

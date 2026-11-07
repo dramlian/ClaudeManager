@@ -32,5 +32,6 @@ electron.contextBridge.exposeInMainWorld('electron', {
   onPtyData: (cb) => on<string>('pty:data', cb),
   onSessionStatus: (cb) => on<SessionStatus>('session:status', cb),
   onContext: (cb) => on<ContextInfo>('context:update', cb),
+  onRemote: (cb) => on<RemoteInfo | null>('remote:update', cb),
   onUsage: (cb) => on<PlanUsage>('usage:update', cb),
 } satisfies Window['electron']);

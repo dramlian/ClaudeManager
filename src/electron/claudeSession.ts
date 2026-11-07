@@ -5,6 +5,7 @@ import { execFileSync } from 'child_process';
 import { createRequire } from 'module';
 import { app, BrowserWindow, type WebContents } from 'electron';
 import type { IPty } from '@lydell/node-pty';
+import QRCode from 'qrcode';
 
 const require = createRequire(import.meta.url);
 const pty: typeof import('@lydell/node-pty') = require('@lydell/node-pty');
@@ -44,6 +45,15 @@ const DEFAULT_CONTEXT: ContextInfo = {
   linesAdded: null,
   linesRemoved: null,
 };
+
+/**
+ * Remote Control: every session starts with `--remote-control`, and Claude prints the session's
+ * claude.ai link in its UI. We pick it out of the terminal output (escape codes stripped) and
+ * render the QR code right away, so the footer can show it instantly even while Claude is busy.
+ * The lookahead only accepts a link that isn't cut off at the end of a chunk.
+ */
+const REMOTE_URL = /https:\/\/claude\.ai\/code\/session_[A-Za-z0-9]+(?=[^A-Za-z0-9])/g;
+const ANSI = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?<>=]*[ -\/]*[@-~]|\x1b[@-_]/g;
 
 function findClaude(): string {
   const candidates = [
@@ -85,6 +95,10 @@ export class ClaudeSession {
   private exitCode: number | null | undefined;
   /** Window the session reports to; null while it is being moved between windows. */
   private target: WebContents | null;
+  /** Remote Control link + QR, once Claude has printed it. */
+  private remote: RemoteInfo | null = null;
+  /** Recent output as plain text, so the link is found even when split across chunks. */
+  private plainTail = '';
 
   /** Prepare the shared runtime folder once per app start; returns its path. */
   static setupRuntime(): string {
@@ -156,7 +170,8 @@ export class ClaudeSession {
   attach(target: WebContents) {
     this.target = target;
     this.send('context:update', this.lastContext);
-    return { status: this.status, history: this.history.join(''), ctx: this.lastContext };
+    this.send('remote:update', this.remote);
+    return { status: this.status, history: this.history.join(''), ctx: this.lastContext, remote: this.remote };
   }
 
   private record(data: string) {
@@ -168,9 +183,31 @@ export class ClaudeSession {
     }
   }
 
+  private scanRemote(data: string) {
+    this.plainTail = (this.plainTail + data.replace(ANSI, ' ')).slice(-1000);
+    if (!this.plainTail.includes('claude.ai/code/session_')) return;
+    const url = [...this.plainTail.matchAll(REMOTE_URL)].pop()?.[0];
+    if (!url || url === this.remote?.url) return;
+    // Remember it right away so the same link isn't encoded twice while the QR renders.
+    this.remote = { url, qrSvg: '' };
+    this.send('remote:update', this.remote);
+    QRCode.toString(url, { type: 'svg', margin: 2, errorCorrectionLevel: 'M' })
+      .then((qrSvg) => {
+        if (this.remote?.url !== url) return;
+        this.remote = { url, qrSvg };
+        this.send('remote:update', this.remote);
+      })
+      .catch(() => {
+        /* keep the link without a QR */
+      });
+  }
+
   start(cwd: string, cols: number, rows: number): SessionStatus {
     this.stop();
     this.resetContext();
+    this.remote = null;
+    this.plainTail = '';
+    this.send('remote:update', null);
     this.history = [];
     this.historyLen = 0;
     this.cwd = cwd;
@@ -183,7 +220,8 @@ export class ClaudeSession {
       return { running: false, cwd, error: (e as Error).message };
     }
 
-    const args = ['--dangerously-skip-permissions', '--settings', this.settingsFile];
+    // --remote-control takes an optional name argument, so it must stay last.
+    const args = ['--dangerously-skip-permissions', '--settings', this.settingsFile, '--remote-control'];
     const env = { ...process.env, FORCE_COLOR: '1', COLORTERM: 'truecolor' } as Record<string, string>;
     delete env.ELECTRON_RUN_AS_NODE;
     delete env.NODE_ENV;
@@ -206,6 +244,7 @@ export class ClaudeSession {
     proc.onData((data) => {
       this.record(data);
       this.send('pty:data', data);
+      this.scanRemote(data);
     });
     proc.onExit(({ exitCode }) => {
       if (this.proc !== proc) return;

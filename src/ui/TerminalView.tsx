@@ -12,6 +12,7 @@ type Props = {
   active: boolean;
   status: SessionStatus;
   ctx: ContextInfo;
+  remote: RemoteInfo | null;
   onStatus: (s: SessionStatus) => void;
   onTitle: (title: string | null) => void;
   /** hiddenOutput: Claude wrote output while this tab wasn't visible. */
@@ -51,7 +52,7 @@ function cleanTitle(raw: string): string | null {
   return !t || GENERIC_TITLES.test(t) ? null : t;
 }
 
-export function TerminalView({ tabId, cwd, attach, active, status, ctx, onStatus, onTitle, onBusy, onRestart, onPopOut }: Props) {
+export function TerminalView({ tabId, cwd, attach, active, status, ctx, remote, onStatus, onTitle, onBusy, onRestart, onPopOut }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -247,7 +248,7 @@ export function TerminalView({ tabId, cwd, attach, active, status, ctx, onStatus
       <div className="terminal-area">
         <div className="terminal" ref={host} />
       </div>
-      <SessionFooter ctx={ctx} cwd={cwd} running={status.running} onPopOut={onPopOut} />
+      <SessionFooter ctx={ctx} cwd={cwd} running={status.running} remote={remote} onPopOut={onPopOut} />
       {exited && (
         <div className="exit-banner">
           <span>

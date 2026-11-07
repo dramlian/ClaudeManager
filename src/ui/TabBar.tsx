@@ -8,6 +8,8 @@ export type Tab = {
   title: string | null;
   status: SessionStatus;
   ctx: ContextInfo;
+  /** Remote Control link + QR; null until Claude reports it. */
+  remote: RemoteInfo | null;
   /** Claude is currently producing output. */
   busy: boolean;
   /** Finished work while the tab was in the background. */

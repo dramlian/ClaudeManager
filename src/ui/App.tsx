@@ -34,6 +34,7 @@ export default function App() {
   }, []);
 
   useEffect(() => window.electron.onContext((id, ctx) => patch(id, { ctx })), [patch]);
+  useEffect(() => window.electron.onRemote((id, remote) => patch(id, { remote })), [patch]);
 
   // Plan usage is account-wide: keep the latest report from any tab, cached across restarts.
   const [usage, setUsage] = useState<PlanUsage | null>(() => {
@@ -60,6 +61,7 @@ export default function App() {
       title: null,
       status: { running: false, cwd },
       ctx: EMPTY,
+      remote: null,
       busy: false,
       unread: false,
       gen: 0,
@@ -78,6 +80,7 @@ export default function App() {
         title: a.title,
         status: { running: true, cwd: a.cwd },
         ctx: EMPTY,
+        remote: null,
         busy: false,
         unread: false,
         gen: 0,
@@ -149,7 +152,7 @@ export default function App() {
   const restartTab = useCallback(
     (id: string) => {
       setTabs((ts) =>
-        ts.map((t) => (t.id === id ? { ...t, gen: t.gen + 1, ctx: EMPTY, title: null, busy: false, attach: false } : t))
+        ts.map((t) => (t.id === id ? { ...t, gen: t.gen + 1, ctx: EMPTY, remote: null, title: null, busy: false, attach: false } : t))
       );
     },
     []
@@ -218,6 +221,7 @@ export default function App() {
             active={t.id === activeId}
             status={t.status}
             ctx={t.ctx}
+            remote={t.remote}
             onStatus={(status) => patch(t.id, { status })}
             onTitle={(title) => patch(t.id, { title })}
             onBusy={(busy, hiddenOutput) =>
