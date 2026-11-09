@@ -18,6 +18,8 @@ export type Tab = {
   gen: number;
   /** Pick up an already-running session (popped out from another window) instead of starting one. */
   attach?: boolean;
+  /** 'login' tabs run `claude auth login` instead of a conversation. */
+  mode?: SessionMode;
 };
 
 type Props = {
@@ -52,7 +54,7 @@ export function TabBar({ tabs, activeId, label, onActivate, onClose, ...menu }: 
                   onClose(t.id);
                 } else if (e.button === 0) onActivate(t.id);
               }}
-              title={`${label(t)}\n${t.cwd}${i < 9 ? `\nCtrl+${i + 1}` : ''}`}
+              title={`${label(t)}${t.cwd ? `\n${t.cwd}` : ''}${i < 9 ? `\nCtrl+${i + 1}` : ''}`}
             >
               <span className={`tab-dot ${state}`} />
               <span className="tab-label">{label(t)}</span>

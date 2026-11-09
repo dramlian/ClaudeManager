@@ -20,6 +20,11 @@ React + Vite UI in `src/ui`, Electron main/preload in `src/electron`.
   appears. The footer's **Remote** button (dot turns teal once the link is ready) shows it in an overlay that never
   touches the terminal, so it opens instantly even while Claude is busy. Needs a claude.ai subscription login.
 
+- Account: the title bar shows who Claude Code is logged in as (`claude auth status --json`). Its menu can
+  **Log out** (`claude auth logout`) or **Log in / Switch account**, which runs `claude auth login` in a terminal tab
+  so the browser link and the paste-the-code prompt both work. The tab closes itself once login succeeds, and the
+  header and plan usage update for the new account.
+
 ## Scripts
 
 | command            | what                                                     |

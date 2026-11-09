@@ -255,6 +255,66 @@ body,
   stroke-linejoin: round;
 }
 
+/* Account button + menu */
+.account {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+.account-btn {
+  height: 28px;
+  max-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.account-btn:hover,
+.account-btn.open {
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+.account-btn.logged-out {
+  color: var(--accent-2);
+  border-color: #efe6a455;
+}
+.account-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.account-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account-menu {
+  left: auto;
+  right: 0;
+  width: 300px;
+  -webkit-app-region: no-drag;
+  user-select: text;
+}
+.account-info {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 8px 6px;
+}
+.menu-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .window-controls {
   display: flex;
   height: 100%;

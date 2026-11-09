@@ -54,6 +54,26 @@ export default function App() {
   );
   useEffect(() => window.electron.onSessionStatus((id, status) => patch(id, { status, busy: false })), [patch]);
 
+  // Who Claude Code is logged in as (undefined until the first answer).
+  const [account, setAccount] = useState<AccountInfo | null | undefined>(undefined);
+  const accountKey = useRef<string | null | undefined>(undefined);
+  const applyAccount = useCallback((a: AccountInfo | null) => {
+    setAccount(a);
+    if (!a) return;
+    // Plan usage belongs to the account: drop the cached numbers when it changes.
+    const key = a.loggedIn ? (a.email ?? a.authMethod ?? '') : null;
+    if (accountKey.current !== undefined && accountKey.current !== key) {
+      setUsage(null);
+      localStorage.removeItem('planUsage');
+    }
+    accountKey.current = key;
+  }, []);
+  useEffect(() => {
+    window.electron.getAccount().then(applyAccount);
+    return window.electron.onAccount((_id, a) => applyAccount(a));
+  }, [applyAccount]);
+  const logout = useCallback(async () => applyAccount(await window.electron.logout()), [applyAccount]);
+
   const openTab = useCallback((cwd: string) => {
     const tab: Tab = {
       id: newId(),
@@ -107,9 +127,32 @@ export default function App() {
     []
   );
 
+  // `claude auth login` in its own tab: it prints the login URL and may ask for a pasted code.
+  const openLogin = useCallback(() => {
+    const existing = tabsRef.current.find((t) => t.mode === 'login' && t.status.running);
+    if (existing) {
+      setActiveId(existing.id);
+      return;
+    }
+    const tab: Tab = {
+      id: newId(),
+      cwd: '',
+      title: null,
+      status: { running: false, cwd: null },
+      ctx: EMPTY,
+      remote: null,
+      busy: false,
+      unread: false,
+      gen: 0,
+      mode: 'login',
+    };
+    setTabs((ts) => [...ts, tab]);
+    setActiveId(tab.id);
+  }, []);
+
   const newConversation = useCallback(() => {
     const active = tabsRef.current.find((t) => t.id === activeRef.current);
-    if (active) openTab(active.cwd);
+    if (active?.cwd) openTab(active.cwd);
     else pickAndOpen();
   }, [openTab, pickAndOpen]);
 
@@ -138,6 +181,16 @@ export default function App() {
       removeTab(id);
     },
     [removeTab]
+  );
+
+  // A successful login closes its tab; the header shows the new account.
+  useEffect(
+    () =>
+      window.electron.onSessionStatus((id, status) => {
+        const t = tabsRef.current.find((x) => x.id === id);
+        if (t?.mode === 'login' && !status.running && status.exitCode === 0) closeTab(id);
+      }),
+    [closeTab]
   );
 
   // Move a running conversation into its own window (the Claude process keeps running).
@@ -186,7 +239,7 @@ export default function App() {
   }, [newConversation, pickAndOpen, closeTab, activate]);
 
   const active = tabs.find((t) => t.id === activeId) ?? null;
-  const label = (t: Tab) => t.title ?? folderName(t.cwd);
+  const label = (t: Tab) => (t.mode === 'login' ? 'Claude login' : (t.title ?? folderName(t.cwd)));
 
   useEffect(() => {
     window.electron.setWindowTitle(active ? `${label(active)} - ClaudeManager` : 'ClaudeManager');
@@ -194,7 +247,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <Header usage={usage} />
+      <Header usage={usage} account={account} onLogin={openLogin} onLogout={logout} />
       {tabs.length > 0 && (
         <TabBar
           tabs={tabs}
@@ -202,7 +255,7 @@ export default function App() {
           label={label}
           onActivate={activate}
           onClose={closeTab}
-          currentFolder={active?.cwd ?? null}
+          currentFolder={active?.cwd || null}
           saved={saved}
           onOpen={openTab}
           onBrowse={pickAndOpen}
@@ -218,6 +271,7 @@ export default function App() {
             tabId={t.id}
             cwd={t.cwd}
             attach={!!t.attach}
+            mode={t.mode ?? 'chat'}
             active={t.id === activeId}
             status={t.status}
             ctx={t.ctx}

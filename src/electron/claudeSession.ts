@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFile, execFileSync } from 'child_process';
 import { createRequire } from 'module';
 import { app, BrowserWindow, type WebContents } from 'electron';
 import type { IPty } from '@lydell/node-pty';
@@ -55,7 +55,7 @@ const DEFAULT_CONTEXT: ContextInfo = {
 const REMOTE_URL = /https:\/\/claude\.ai\/code\/session_[A-Za-z0-9]+(?=[^A-Za-z0-9])/g;
 const ANSI = /\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|\x1b\[[0-9;?<>=]*[ -\/]*[@-~]|\x1b[@-_]/g;
 
-function findClaude(): string {
+export function findClaude(): string {
   const candidates = [
     path.join(os.homedir(), '.local', 'bin', 'claude.exe'),
     path.join(process.env.APPDATA ?? '', 'npm', 'claude.cmd'),
@@ -80,6 +80,43 @@ function findClaude(): string {
   return hit;
 }
 
+/** Environment for a child `claude` process. */
+function claudeEnv(): Record<string, string> {
+  const env = { ...process.env, FORCE_COLOR: '1', COLORTERM: 'truecolor' } as Record<string, string>;
+  delete env.ELECTRON_RUN_AS_NODE;
+  delete env.NODE_ENV;
+  // Don't let markers from a parent Claude session (if the app was launched from one) leak in.
+  for (const k of ['CLAUDECODE', 'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT']) {
+    delete env[k];
+  }
+  return env;
+}
+
+/** Run a non-interactive `claude` subcommand (e.g. `auth status`) and collect its output. */
+export function runClaude(args: string[], timeoutMs = 15_000): Promise<{ code: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    let file: string;
+    try {
+      file = findClaude();
+    } catch (e) {
+      resolve({ code: -1, stdout: '', stderr: (e as Error).message });
+      return;
+    }
+    const isCmd = file.toLowerCase().endsWith('.cmd');
+    const env = claudeEnv();
+    delete env.FORCE_COLOR;
+    execFile(
+      isCmd ? 'cmd.exe' : file,
+      isCmd ? ['/c', file, ...args] : args,
+      { env, timeout: timeoutMs, windowsHide: true, encoding: 'utf8' },
+      (err, stdout, stderr) => {
+        const code = err ? (typeof err.code === 'number' ? err.code : 1) : 0;
+        resolve({ code, stdout: String(stdout), stderr: String(stderr) });
+      }
+    );
+  });
+}
+
 export class ClaudeSession {
   private proc: IPty | null = null;
   private stateFile: string;
@@ -99,6 +136,8 @@ export class ClaudeSession {
   private remote: RemoteInfo | null = null;
   /** Recent output as plain text, so the link is found even when split across chunks. */
   private plainTail = '';
+  /** Called when the process exits on its own (not when it is stopped). */
+  onExit?: (exitCode: number) => void;
 
   /** Prepare the shared runtime folder once per app start; returns its path. */
   static setupRuntime(): string {
@@ -202,7 +241,7 @@ export class ClaudeSession {
       });
   }
 
-  start(cwd: string, cols: number, rows: number): SessionStatus {
+  start(cwd: string, cols: number, rows: number, mode: SessionMode = 'chat'): SessionStatus {
     this.stop();
     this.resetContext();
     this.remote = null;
@@ -221,14 +260,11 @@ export class ClaudeSession {
     }
 
     // --remote-control takes an optional name argument, so it must stay last.
-    const args = ['--dangerously-skip-permissions', '--settings', this.settingsFile, '--remote-control'];
-    const env = { ...process.env, FORCE_COLOR: '1', COLORTERM: 'truecolor' } as Record<string, string>;
-    delete env.ELECTRON_RUN_AS_NODE;
-    delete env.NODE_ENV;
-    // Don't let markers from a parent Claude session (if the app was launched from one) leak in.
-    for (const k of ['CLAUDECODE', 'CLAUDE_CODE_CHILD_SESSION', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SSE_PORT']) {
-      delete env[k];
-    }
+    const args =
+      mode === 'login'
+        ? ['auth', 'login']
+        : ['--dangerously-skip-permissions', '--settings', this.settingsFile, '--remote-control'];
+    const env = claudeEnv();
 
     const isCmd = file.toLowerCase().endsWith('.cmd');
     const proc = pty.spawn(isCmd ? 'cmd.exe' : file, isCmd ? ['/c', file, ...args] : args, {
@@ -244,16 +280,17 @@ export class ClaudeSession {
     proc.onData((data) => {
       this.record(data);
       this.send('pty:data', data);
-      this.scanRemote(data);
+      if (mode === 'chat') this.scanRemote(data);
     });
     proc.onExit(({ exitCode }) => {
       if (this.proc !== proc) return;
       this.proc = null;
       this.exitCode = exitCode;
       this.send('session:status', { running: false, cwd, exitCode });
+      this.onExit?.(exitCode);
     });
 
-    this.watch();
+    if (mode === 'chat') this.watch();
     return { running: true, cwd };
   }
 

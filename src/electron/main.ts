@@ -4,7 +4,7 @@ import { execFileSync, spawn } from 'child_process';
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'electron';
 import { pathToFileURL } from 'url';
 import { getPreloadPath, getUIPath, isDev } from './pathResolver.js';
-import { ClaudeSession, limit } from './claudeSession.js';
+import { ClaudeSession, limit, runClaude } from './claudeSession.js';
 
 const MAX_RECENT = 8;
 const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
@@ -138,6 +138,25 @@ async function fetchPlanUsage(): Promise<PlanUsage | null> {
   }
 }
 
+/** Who Claude Code is logged in as, straight from the CLI (it knows every storage/auth variant). */
+async function fetchAccount(): Promise<AccountInfo | null> {
+  const { stdout } = await runClaude(['auth', 'status', '--json']);
+  try {
+    // `auth status` exits non-zero when logged out but still prints the JSON.
+    const j = JSON.parse(stdout.slice(stdout.indexOf('{')));
+    const str = (v: unknown) => (typeof v === 'string' && v ? v : null);
+    return {
+      loggedIn: !!j.loggedIn,
+      email: str(j.email),
+      orgName: str(j.orgName),
+      plan: str(j.subscriptionType) ?? str(j.planTier),
+      authMethod: str(j.authMethod),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function isTrustedSender(frameUrl: string | undefined) {
   if (!frameUrl) return false;
   if (isDev()) return new URL(frameUrl).host === 'localhost:5123';
@@ -164,10 +183,22 @@ app.whenReady().then(() => {
     }
   };
   setInterval(() => pushUsage(), 5 * 60_000);
-  // Logging in (or out, or a token refresh) rewrites the credentials file: refresh usage right away.
+
+  // ---------- Account (login status, sent to every window) ----------
+  const pushAccount = async () => {
+    const account = await fetchAccount();
+    for (const w of BrowserWindow.getAllWindows()) {
+      if (!w.isDestroyed()) w.webContents.send('account:update', '', account);
+    }
+    return account;
+  };
+
+  // Logging in (or out, or a token refresh) rewrites the credentials file: refresh right away.
   // watchFile polls, so it also works when the file doesn't exist yet (not logged in).
   fs.watchFile(credentialsFile(), { interval: 2000 }, (curr, prev) => {
-    if (curr.mtimeMs !== prev.mtimeMs) pushUsage();
+    if (curr.mtimeMs === prev.mtimeMs) return;
+    pushAccount();
+    pushUsage();
   });
 
   // ---------- Windows ----------
@@ -232,12 +263,15 @@ app.whenReady().then(() => {
   // ---------- Sessions ----------
   ipcMain.handle(
     'session:start',
-    guard((e, tabId: string, cwd: string, cols: number, rows: number) => {
+    guard((e, tabId: string, cwd: string, cols: number, rows: number, mode?: SessionMode) => {
       if (!validId(tabId)) return { running: false, cwd, error: 'Invalid tab id' } satisfies SessionStatus;
+      const login = mode === 'login';
+      // The login flow doesn't belong to a project; run it from the home folder.
+      if (login) cwd = app.getPath('home');
       if (typeof cwd !== 'string' || !fs.existsSync(cwd)) {
         return { running: false, cwd, error: `Folder not found: ${cwd}` } satisfies SessionStatus;
       }
-      pushRecent(cwd);
+      if (!login) pushRecent(cwd);
       let s = sessions.get(tabId);
       if (!s) {
         s = new ClaudeSession(e.sender, tabId, runtimeDir);
@@ -245,7 +279,9 @@ app.whenReady().then(() => {
       } else {
         s.attach(e.sender);
       }
-      return s.start(cwd, cols, rows);
+      // Don't wait for the credentials poll: show the new account as soon as login finishes.
+      s.onExit = login ? () => (pushAccount(), pushUsage()) : undefined;
+      return s.start(cwd, cols, rows, login ? 'login' : 'chat');
     })
   );
   // A window picks up a running session (after a pop-out) instead of starting a new one.
@@ -349,6 +385,16 @@ app.whenReady().then(() => {
     guard((_e, folder: string) => {
       writeRecent(readRecent().filter((f) => f !== folder));
       return readRecent();
+    })
+  );
+
+  // ---------- Account ----------
+  ipcMain.handle('account:get', guard(() => fetchAccount()));
+  ipcMain.handle(
+    'account:logout',
+    guard(async () => {
+      await runClaude(['auth', 'logout']);
+      return pushAccount();
     })
   );
 

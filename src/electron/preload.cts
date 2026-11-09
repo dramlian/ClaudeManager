@@ -9,7 +9,11 @@ function on<T>(channel: string, cb: (tabId: string, payload: T) => void) {
 }
 
 electron.contextBridge.exposeInMainWorld('electron', {
-  startSession: (tabId, cwd, cols, rows) => electron.ipcRenderer.invoke('session:start', tabId, cwd, cols, rows),
+  startSession: (tabId, cwd, cols, rows, mode) =>
+    electron.ipcRenderer.invoke('session:start', tabId, cwd, cols, rows, mode),
+  getAccount: () => electron.ipcRenderer.invoke('account:get'),
+  logout: () => electron.ipcRenderer.invoke('account:logout'),
+  onAccount: (cb) => on<AccountInfo | null>('account:update', cb),
   closeSession: (tabId) => electron.ipcRenderer.invoke('session:close', tabId),
   attachSession: (tabId, cols, rows) => electron.ipcRenderer.invoke('session:attach', tabId, cols, rows),
   popOut: (tab) => electron.ipcRenderer.invoke('window:popout', tab),

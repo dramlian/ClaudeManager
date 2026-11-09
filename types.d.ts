@@ -55,6 +55,20 @@ type GitBranch = {
   detached: boolean;
 };
 
+/** Claude Code login, from `claude auth status --json`. */
+type AccountInfo = {
+  loggedIn: boolean;
+  email: string | null;
+  orgName: string | null;
+  /** e.g. "pro", "max"; null for API-key / Console logins. */
+  plan: string | null;
+  /** e.g. "claude.ai", "console", "api_key". */
+  authMethod: string | null;
+};
+
+/** What a tab runs: a normal conversation, or the interactive `claude auth login` flow. */
+type SessionMode = 'chat' | 'login';
+
 type FrameWindowAction = 'CLOSE' | 'MAXIMIZE' | 'MINIMIZE';
 
 type SessionStatus = {
@@ -68,7 +82,13 @@ type UnsubscribeFunction = () => void;
 
 interface Window {
   electron: {
-    startSession: (tabId: string, cwd: string, cols: number, rows: number) => Promise<SessionStatus>;
+    startSession: (tabId: string, cwd: string, cols: number, rows: number, mode?: SessionMode) => Promise<SessionStatus>;
+    /** Current login; null if the CLI couldn't be asked. */
+    getAccount: () => Promise<AccountInfo | null>;
+    /** Runs `claude auth logout`; resolves to the account afterwards. */
+    logout: () => Promise<AccountInfo | null>;
+    /** Login changed (log in, log out, or another account). */
+    onAccount: (cb: (tabId: string, account: AccountInfo | null) => void) => UnsubscribeFunction;
     closeSession: (tabId: string) => Promise<void>;
     /** Pick up a running session (null if it no longer exists). */
     attachSession: (tabId: string, cols: number, rows: number) => Promise<SessionSnapshot | null>;

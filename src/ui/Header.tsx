@@ -1,10 +1,14 @@
+import { AccountMenu } from './AccountMenu';
 import { UsageMeter } from './UsageMeter';
 
 type Props = {
   usage: PlanUsage | null;
+  account: AccountInfo | null | undefined;
+  onLogin: () => void;
+  onLogout: () => Promise<void>;
 };
 
-export function Header({ usage }: Props) {
+export function Header({ usage, account, onLogin, onLogout }: Props) {
   return (
     <header className="header">
       <div className="brand">
@@ -18,6 +22,8 @@ export function Header({ usage }: Props) {
         <UsageMeter label="Session" limit={usage?.session ?? null} />
         <UsageMeter label="Week" limit={usage?.week ?? null} longWindow />
       </div>
+
+      <AccountMenu account={account} onLogin={onLogin} onLogout={onLogout} />
 
       <div className="window-controls">
         <button onClick={() => window.electron.sendFrameAction('MINIMIZE')} title="Minimize">

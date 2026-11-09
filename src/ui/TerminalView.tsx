@@ -9,6 +9,7 @@ type Props = {
   cwd: string;
   /** Pick up a running session instead of starting Claude. */
   attach: boolean;
+  mode: SessionMode;
   active: boolean;
   status: SessionStatus;
   ctx: ContextInfo;
@@ -52,7 +53,7 @@ function cleanTitle(raw: string): string | null {
   return !t || GENERIC_TITLES.test(t) ? null : t;
 }
 
-export function TerminalView({ tabId, cwd, attach, active, status, ctx, remote, onStatus, onTitle, onBusy, onRestart, onPopOut }: Props) {
+export function TerminalView({ tabId, cwd, attach, mode, active,status, ctx, remote, onStatus, onTitle, onBusy, onRestart, onPopOut }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -209,7 +210,7 @@ export function TerminalView({ tabId, cwd, attach, active, status, ctx, remote, 
         cb.current.onStatus(snap.status);
         return;
       }
-      const s = await window.electron.startSession(tabId, cwd, term.cols, term.rows);
+      const s = await window.electron.startSession(tabId, cwd, term.cols, term.rows, mode);
       if (disposed) return;
       setTimeout(() => (started = true), 3000); // skip the startup banner when tracking activity
       cb.current.onStatus(s);
@@ -248,16 +249,20 @@ export function TerminalView({ tabId, cwd, attach, active, status, ctx, remote, 
       <div className="terminal-area">
         <div className="terminal" ref={host} />
       </div>
-      <SessionFooter ctx={ctx} cwd={cwd} running={status.running} remote={remote} onPopOut={onPopOut} />
+      {mode === 'chat' && (
+        <SessionFooter ctx={ctx} cwd={cwd} running={status.running} remote={remote} onPopOut={onPopOut} />
+      )}
       {exited && (
         <div className="exit-banner">
           <span>
             {status.error
               ? 'Claude failed to start.'
-              : `Claude exited${status.exitCode ? ` (code ${status.exitCode})` : ''}.`}
+              : mode === 'login'
+                ? 'Login did not finish.'
+                : `Claude exited${status.exitCode ? ` (code ${status.exitCode})` : ''}.`}
           </span>
           <button className="primary small" onClick={onRestart}>
-            Restart
+            {mode === 'login' ? 'Try again' : 'Restart'}
           </button>
         </div>
       )}
