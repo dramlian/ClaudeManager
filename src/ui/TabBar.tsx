@@ -29,11 +29,7 @@ type Props = {
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   currentFolder: string | null;
-  saved: string[];
   onOpen: (folder: string) => void;
-  onBrowse: () => void;
-  onAddSaved: () => void;
-  onRemoveSaved: (folder: string) => void;
   onNewWindow: () => void;
 };
 

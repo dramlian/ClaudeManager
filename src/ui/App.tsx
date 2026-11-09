@@ -111,22 +111,6 @@ export default function App() {
     });
   }, []);
 
-  const pickAndOpen = useCallback(async () => {
-    const folder = await window.electron.pickFolder();
-    if (folder) openTab(folder);
-  }, [openTab]);
-
-  // Saved folders, shared by the "+" menu and the start screen.
-  const [saved, setSaved] = useState<string[]>([]);
-  useEffect(() => {
-    window.electron.getSavedFolders().then(setSaved);
-  }, []);
-  const addSaved = useCallback(async () => setSaved(await window.electron.addSavedFolder()), []);
-  const removeSaved = useCallback(
-    async (folder: string) => setSaved(await window.electron.removeSavedFolder(folder)),
-    []
-  );
-
   // `claude auth login` in its own tab: it prints the login URL and may ask for a pasted code.
   const openLogin = useCallback(() => {
     const existing = tabsRef.current.find((t) => t.mode === 'login' && t.status.running);
@@ -153,8 +137,7 @@ export default function App() {
   const newConversation = useCallback(() => {
     const active = tabsRef.current.find((t) => t.id === activeRef.current);
     if (active?.cwd) openTab(active.cwd);
-    else pickAndOpen();
-  }, [openTab, pickAndOpen]);
+  }, [openTab]);
 
   const activate = useCallback(
     (id: string) => {
@@ -218,7 +201,6 @@ export default function App() {
       const idx = ts.findIndex((t) => t.id === activeRef.current);
       let handled = true;
       if (e.ctrlKey && e.shiftKey && e.code === 'KeyT') newConversation();
-      else if (e.ctrlKey && e.shiftKey && e.code === 'KeyO') pickAndOpen();
       else if (e.ctrlKey && e.shiftKey && e.code === 'KeyN') window.electron.newWindow();
       else if (e.ctrlKey && e.shiftKey && e.code === 'KeyW') activeRef.current && closeTab(activeRef.current);
       else if (e.ctrlKey && e.key === 'Tab' && ts.length > 1)
@@ -236,7 +218,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [newConversation, pickAndOpen, closeTab, activate]);
+  }, [newConversation, closeTab, activate]);
 
   const active = tabs.find((t) => t.id === activeId) ?? null;
   const label = (t: Tab) => (t.mode === 'login' ? 'Claude login' : (t.title ?? folderName(t.cwd)));
@@ -256,11 +238,7 @@ export default function App() {
           onActivate={activate}
           onClose={closeTab}
           currentFolder={active?.cwd || null}
-          saved={saved}
           onOpen={openTab}
-          onBrowse={pickAndOpen}
-          onAddSaved={addSaved}
-          onRemoveSaved={removeSaved}
           onNewWindow={window.electron.newWindow}
         />
       )}
@@ -294,11 +272,6 @@ export default function App() {
         {tabs.length === 0 && (
           <StartScreen
             onOpen={openTab}
-            onBrowse={pickAndOpen}
-            saved={saved}
-            onAddSaved={addSaved}
-            onRemoveSaved={removeSaved}
-            onNewWindow={window.electron.newWindow}
           />
         )}
       </main>

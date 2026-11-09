@@ -7,43 +7,53 @@ import { getPreloadPath, getUIPath, isDev } from './pathResolver.js';
 import { ClaudeSession, limit, runClaude } from './claudeSession.js';
 import { readClipboardForPaste, sweepPastes } from './clipboardPaste.js';
 
-const MAX_RECENT = 8;
-const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
+/** The workspace: one parent folder whose direct subfolders are offered as projects. */
+const workspaceFile = () => path.join(app.getPath('userData'), 'workspace.json');
+/** Don't send absurdly large listings to the UI. */
+const MAX_WORKSPACE_FOLDERS = 5000;
 
-function readRecent(): string[] {
+function readWorkspaceRoot(): string | null {
   try {
-    const list = JSON.parse(fs.readFileSync(recentFile(), 'utf8').replace(/^\uFEFF/, ''));
-    return Array.isArray(list) ? list.filter((f) => typeof f === 'string' && fs.existsSync(f)) : [];
+    const j = JSON.parse(fs.readFileSync(workspaceFile(), 'utf8').replace(/^﻿/, ''));
+    return typeof j?.root === 'string' && j.root ? j.root : null;
   } catch {
-    return [];
+    return null;
   }
 }
 
-function writeRecent(list: string[]) {
-  fs.mkdirSync(path.dirname(recentFile()), { recursive: true });
-  fs.writeFileSync(recentFile(), JSON.stringify(list.slice(0, MAX_RECENT), null, 2));
+function writeWorkspaceRoot(root: string) {
+  fs.mkdirSync(path.dirname(workspaceFile()), { recursive: true });
+  fs.writeFileSync(workspaceFile(), JSON.stringify({ root }, null, 2));
 }
 
-/** Folders the user pinned; kept even if temporarily missing (e.g. an unplugged drive). */
-const savedFile = () => path.join(app.getPath('userData'), 'saved-folders.json');
-
-function readSaved(): string[] {
+/** The workspace root and its direct subfolders (one level only, hidden ones skipped). */
+function readWorkspace(): WorkspaceInfo {
+  const root = readWorkspaceRoot();
+  if (!root) return { root: null, folders: [] };
+  let entries: fs.Dirent[];
   try {
-    const list = JSON.parse(fs.readFileSync(savedFile(), 'utf8').replace(/^﻿/, ''));
-    return Array.isArray(list) ? list.filter((f) => typeof f === 'string') : [];
+    entries = fs.readdirSync(root, { withFileTypes: true });
   } catch {
-    return [];
+    return { root, folders: [], missing: true };
   }
+  const folders = entries
+    .filter((d) => !d.name.startsWith('.') && !d.name.startsWith('$'))
+    .map((d) => ({ name: d.name, path: path.join(root, d.name), dirent: d }))
+    .filter(({ dirent, path: p }) => {
+      if (dirent.isDirectory()) return true;
+      if (!dirent.isSymbolicLink()) return false; // junctions / symlinks to folders count too
+      try {
+        return fs.statSync(p).isDirectory();
+      } catch {
+        return false;
+      }
+    })
+    .map(({ name, path: p }) => ({ name, path: p }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true }))
+    .slice(0, MAX_WORKSPACE_FOLDERS);
+  return { root, folders };
 }
 
-function writeSaved(list: string[]) {
-  fs.mkdirSync(path.dirname(savedFile()), { recursive: true });
-  fs.writeFileSync(savedFile(), JSON.stringify(list, null, 2));
-}
-
-function pushRecent(folder: string) {
-  writeRecent([folder, ...readRecent().filter((f) => f.toLowerCase() !== folder.toLowerCase())]);
-}
 
 /** Locate VS Code's Code.exe (user install, system install, or via the `code` shim on PATH). */
 function findVSCode(): string | null {
@@ -273,7 +283,6 @@ app.whenReady().then(() => {
       if (typeof cwd !== 'string' || !fs.existsSync(cwd)) {
         return { running: false, cwd, error: `Folder not found: ${cwd}` } satisfies SessionStatus;
       }
-      if (!login) pushRecent(cwd);
       let s = sessions.get(tabId);
       if (!s) {
         s = new ClaudeSession(e.sender, tabId, runtimeDir);
@@ -359,34 +368,13 @@ app.whenReady().then(() => {
     const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
     return res.canceled ? null : res.filePaths[0];
   };
-  ipcMain.handle('folder:pick', guard((e) => pickDir(e, 'Open a project folder for Claude')));
-  ipcMain.handle('saved:list', guard(() => readSaved()));
+  ipcMain.handle('workspace:get', guard(() => readWorkspace()));
   ipcMain.handle(
-    'saved:add',
+    'workspace:set',
     guard(async (e) => {
-      const folder = await pickDir(e, 'Save a folder to your list');
-      const list = readSaved();
-      if (folder && !list.some((f) => f.toLowerCase() === folder.toLowerCase())) {
-        list.push(folder);
-        writeSaved(list);
-      }
-      return list;
-    })
-  );
-  ipcMain.handle(
-    'saved:remove',
-    guard((_e, folder: string) => {
-      const list = readSaved().filter((f) => f !== folder);
-      writeSaved(list);
-      return list;
-    })
-  );
-  ipcMain.handle('folder:recent', guard(() => readRecent()));
-  ipcMain.handle(
-    'folder:removeRecent',
-    guard((_e, folder: string) => {
-      writeRecent(readRecent().filter((f) => f !== folder));
-      return readRecent();
+      const root = await pickDir(e, 'Choose your workspace folder');
+      if (root) writeWorkspaceRoot(root);
+      return readWorkspace();
     })
   );
 

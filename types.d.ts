@@ -69,6 +69,15 @@ type AccountInfo = {
 /** What a tab runs: a normal conversation, or the interactive `claude auth login` flow. */
 type SessionMode = 'chat' | 'login';
 
+/** One parent folder; its direct subfolders are the projects offered in the folder search. */
+type WorkspaceInfo = {
+  /** null until the user picks a workspace. */
+  root: string | null;
+  folders: { name: string; path: string }[];
+  /** The workspace folder can't be read (deleted, unplugged drive, ...). */
+  missing?: boolean;
+};
+
 /** Clipboard contents turned into something the terminal can paste. */
 type ClipboardPaste = {
   kind: 'text' | 'image' | 'file' | 'empty';
@@ -107,7 +116,6 @@ interface Window {
     writeToPty: (tabId: string, data: string) => void;
     resizePty: (tabId: string, cols: number, rows: number) => void;
     setWindowTitle: (title: string) => void;
-    pickFolder: () => Promise<string | null>;
     clipboardRead: () => Promise<string>;
     /** What Ctrl+V should type: clipboard text, or the path of a saved image / copied file. */
     clipboardPaste: () => Promise<ClipboardPaste>;
@@ -115,12 +123,10 @@ interface Window {
     openInVSCode: (folder: string) => Promise<{ ok: boolean; error?: string }>;
     /** null when the folder is not inside a git repo. */
     getGitBranch: (dir: string) => Promise<GitBranch | null>;
-    getRecentFolders: () => Promise<string[]>;
-    removeRecentFolder: (folder: string) => Promise<string[]>;
-    getSavedFolders: () => Promise<string[]>;
-    /** Opens a folder picker and saves the choice; resolves to the updated list. */
-    addSavedFolder: () => Promise<string[]>;
-    removeSavedFolder: (folder: string) => Promise<string[]>;
+    /** The workspace folder and its direct subfolders (fresh listing on every call). */
+    getWorkspace: () => Promise<WorkspaceInfo>;
+    /** Opens a folder picker and makes the choice the workspace; resolves to the new listing. */
+    setWorkspace: () => Promise<WorkspaceInfo>;
     sendFrameAction: (action: FrameWindowAction) => void;
     onPtyData: (cb: (tabId: string, data: string) => void) => UnsubscribeFunction;
     onSessionStatus: (cb: (tabId: string, status: SessionStatus) => void) => UnsubscribeFunction;

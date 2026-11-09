@@ -42,7 +42,6 @@ pulsing orange = working, light orange ring = finished while you were away, grey
 | shortcut              | action                                   |
 | --------------------- | ---------------------------------------- |
 | `Ctrl+Shift+T` / `+`  | new conversation in the current folder   |
-| `Ctrl+Shift+O`        | new conversation in another folder       |
 | `Ctrl+Shift+W` / middle-click | close conversation               |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | next / previous tab              |
 | `Ctrl+1`…`Ctrl+9`     | jump to tab (9 = last)                   |

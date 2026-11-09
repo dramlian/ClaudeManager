@@ -864,8 +864,8 @@ button.primary.small {
   font-size: 12px;
 }
 
-.recent {
-  margin-top: 32px;
+.start-section {
+  margin-top: 8px;
   text-align: left;
 }
 .recent-title {
@@ -874,46 +874,6 @@ button.primary.small {
   letter-spacing: 1px;
   color: var(--muted);
   margin: 0 0 8px 4px;
-}
-.recent-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 0;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-.recent-item:hover {
-  background: var(--panel);
-  border-color: var(--border);
-}
-.recent-name {
-  font-weight: 600;
-  font-size: 14px;
-}
-.recent-path {
-  color: var(--muted);
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.recent-remove {
-  opacity: 0;
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 18px;
-  cursor: pointer;
-  padding: 0 4px;
-}
-.recent-item:hover .recent-remove {
-  opacity: 1;
-}
-.recent-remove:hover {
-  color: var(--danger);
 }
 
 /* =====================================================================
@@ -1093,13 +1053,6 @@ button.primary.small {
 .recent-title {
   color: var(--accent-2);
 }
-.recent-item:hover {
-  background: var(--panel-2);
-  border-color: var(--border-hi);
-}
-.recent-item:hover .recent-name {
-  color: var(--accent);
-}
 button.primary {
   background: var(--neon);
   color: #1a0b04;
@@ -1123,21 +1076,6 @@ code {
 .exit-banner {
   border: 2px solid var(--border-hi);
   box-shadow: 4px 4px 0 #000;
-}
-
-.link-btn {
-  display: block;
-  margin: 10px auto 0;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-.link-btn:hover {
-  color: var(--accent);
-  text-decoration: underline;
 }
 
 /* xterm's stylesheet paints the viewport pure black; the leftover pixels below the last row showed as a black bar. */
@@ -1296,4 +1234,124 @@ code {
 .modal-actions .footer-btn {
   flex: 1;
   justify-content: center;
+}
+
+/* ---------- Workspace folder search ("+" menu and start screen) ---------- */
+.folder-search .menu-empty {
+  text-align: left;
+}
+.fs-root {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 8px 6px;
+  color: var(--accent-2);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.fs-root-path {
+  min-width: 0;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fs-input {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 7px 9px;
+  background: var(--bg);
+  color: var(--text);
+  border: 2px solid var(--border-hi);
+  border-radius: 0;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.fs-input:focus {
+  border-color: var(--accent);
+}
+.fs-input::placeholder {
+  color: var(--muted);
+}
+.fs-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.folder-search.fs-start .fs-list {
+  max-height: 340px;
+}
+.fs-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.fs-item.selected {
+  background: var(--panel-2);
+  border-color: var(--border-hi);
+}
+.fs-item.selected .fs-name {
+  color: var(--accent);
+}
+.fs-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fs-name mark {
+  background: none;
+  color: var(--neon);
+  font-weight: 700;
+}
+.fs-set {
+  margin: 2px 8px 6px;
+  padding: 6px 12px;
+  background: transparent;
+  color: var(--neon);
+  border: 1px solid var(--border-hi);
+  border-radius: 0;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.fs-set:hover {
+  border-color: var(--neon);
+}
+
+/* ---------- Scrollbars: square pixel style to match the theme (folder list, menus, dialogs) ---------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-hi);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent);
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--neon);
+}
+::-webkit-scrollbar-button {
+  display: none;
 }
