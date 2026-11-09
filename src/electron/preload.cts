@@ -35,4 +35,7 @@ electron.contextBridge.exposeInMainWorld('electron', {
   onContext: (cb) => on<ContextInfo>('context:update', cb),
   onRemote: (cb) => on<RemoteInfo | null>('remote:update', cb),
   onUsage: (cb) => on<PlanUsage>('usage:update', cb),
+  getUpdate: () => electron.ipcRenderer.invoke('update:get'),
+  updateAction: (action) => electron.ipcRenderer.send('update:action', action),
+  onUpdate: (cb) => on<UpdateInfo>('update:status', cb),
 } satisfies Window['electron']);

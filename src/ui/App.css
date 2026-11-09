@@ -315,6 +315,67 @@ body,
   cursor: default;
 }
 
+/* Version badge + update popup */
+.update {
+  position: relative;
+  margin-left: -6px;
+  -webkit-app-region: no-drag;
+}
+.update-btn {
+  height: 22px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.update-btn:hover,
+.update-btn.open {
+  border-color: var(--border-hi);
+  color: var(--text);
+}
+.update-btn.has-update {
+  border-color: #ff6b3580;
+  color: var(--text);
+}
+.update-pill {
+  color: var(--neon);
+  font-weight: 600;
+}
+.update-menu {
+  width: 290px;
+  user-select: text;
+}
+.update-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 8px 6px;
+  font-size: 12px;
+}
+.update-info .menu-path {
+  white-space: normal;
+}
+.update-error {
+  color: var(--danger);
+}
+.update-progress {
+  height: 4px;
+  margin: 4px 8px 8px;
+  background: var(--panel-2);
+}
+.update-progress > div {
+  height: 100%;
+  background: var(--neon);
+  transition: width 0.2s;
+}
+
 .window-controls {
   display: flex;
   height: 100%;

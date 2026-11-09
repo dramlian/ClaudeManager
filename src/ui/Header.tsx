@@ -1,4 +1,5 @@
 import { AccountMenu } from './AccountMenu';
+import { UpdateBadge } from './UpdateBadge';
 import { UsageMeter } from './UsageMeter';
 
 type Props = {
@@ -15,6 +16,7 @@ export function Header({ usage, account, onLogin, onLogout }: Props) {
         <span className="logo">&gt;_</span>
         <span className="brand-name">claude-manager</span>
       </div>
+      <UpdateBadge />
 
       <div className="spacer" />
 

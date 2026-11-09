@@ -6,6 +6,7 @@ import { pathToFileURL } from 'url';
 import { getPreloadPath, getUIPath, isDev } from './pathResolver.js';
 import { ClaudeSession, limit, runClaude } from './claudeSession.js';
 import { readClipboardForPaste, sweepPastes } from './clipboardPaste.js';
+import { initUpdater } from './updater.js';
 
 /** The workspace: one parent folder whose direct subfolders are offered as projects. */
 const workspaceFile = () => path.join(app.getPath('userData'), 'workspace.json');
@@ -385,6 +386,16 @@ app.whenReady().then(() => {
     guard(async () => {
       await runClaude(['auth', 'logout']);
       return pushAccount();
+    })
+  );
+
+  // ---------- Updates ----------
+  const updater = initUpdater();
+  ipcMain.handle('update:get', guard(() => updater.get()));
+  ipcMain.on(
+    'update:action',
+    guard((_e, action: UpdateAction) => {
+      if (['check', 'download', 'install', 'open'].includes(action)) updater.act(action);
     })
   );
 

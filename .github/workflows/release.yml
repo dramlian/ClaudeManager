@@ -1,0 +1,44 @@
+# Pushing a version tag (v1.2.3) builds the Windows installers and publishes them as a GitHub
+# Release. Installed copies of the app pick the new version up from there (electron-updater).
+#
+#   npm version patch        # or minor / major: bumps package.json, commits, tags
+#   git push --follow-tags
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Tag must match package.json version
+        shell: bash
+        run: |
+          pkg="v$(node -p "require('./package.json').version")"
+          if [ "$pkg" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $pkg"
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - run: npm run transpile:electron
+
+      - run: npm run build
+
+      - name: Build installers and publish the release
+        run: npx electron-builder --win --x64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

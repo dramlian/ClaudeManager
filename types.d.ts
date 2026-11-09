@@ -85,6 +85,25 @@ type ClipboardPaste = {
   text: string;
 };
 
+/** App self-update, driven by GitHub Releases. */
+type UpdateInfo = {
+  /** Version that is running now. */
+  current: string;
+  phase: 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
+  /** Newer version found on the release server, if any. */
+  latest: string | null;
+  /** Download progress, 0-100. */
+  percent: number | null;
+  error: string | null;
+  /** false in dev runs, where there is nothing to check against. */
+  canCheck: boolean;
+  /** false for the portable exe and dev runs: they can't replace themselves. */
+  selfUpdate: boolean;
+};
+
+/** check: look for a new version; download / install: self-update; open: show the release page. */
+type UpdateAction = 'check' | 'download' | 'install' | 'open';
+
 type FrameWindowAction ='CLOSE' | 'MAXIMIZE' | 'MINIMIZE';
 
 type SessionStatus = {
@@ -134,5 +153,8 @@ interface Window {
     onUsage: (cb: (tabId: string, usage: PlanUsage) => void) => UnsubscribeFunction;
     /** Remote Control link became available (null again after a restart). */
     onRemote: (cb: (tabId: string, remote: RemoteInfo | null) => void) => UnsubscribeFunction;
+    getUpdate: () => Promise<UpdateInfo>;
+    updateAction: (action: UpdateAction) => void;
+    onUpdate: (cb: (tabId: string, update: UpdateInfo) => void) => UnsubscribeFunction;
   };
 }

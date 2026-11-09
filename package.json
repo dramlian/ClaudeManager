@@ -14,13 +14,15 @@
     "build": "tsc && vite build",
     "transpile:electron": "tsc --project src/electron/tsconfig.json",
     "start": "npm run transpile:electron && npm run build && electron .",
-    "dist:win": "npm run transpile:electron && npm run build && electron-builder --win --x64"
+    "dist:win": "npm run transpile:electron && npm run build && electron-builder --win --x64 --publish never",
+    "release": "npm version patch && git push --follow-tags"
   },
   "dependencies": {
     "@lydell/node-pty": "^1.2.0-beta.18",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
+    "electron-updater": "^6.8.11",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

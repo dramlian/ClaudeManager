@@ -33,6 +33,23 @@ React + Vite UI in `src/ui`, Electron main/preload in `src/electron`.
 | `npm start`        | build and run the production bundle                      |
 | `npm run dist:win` | build `dist/ClaudeManager-<v>-portable.exe` and `-setup.exe` |
 
+## Versions and updates
+
+The version lives in `package.json` and is shown next to the app name in the title bar. The app checks GitHub
+Releases at startup and every 4 hours (`src/electron/updater.ts`, `electron-updater`). When a newer release
+exists, the version label lights up and a popup offers **Update**: it downloads in the background, then
+**Restart and update** installs it. Only the installed (`-setup.exe`) build can update itself; the portable exe
+shows the same popup but opens the download page.
+
+To release a new version:
+
+```
+npm run release        # = npm version patch && git push --follow-tags
+```
+
+(use `npm version minor` / `major` + `git push --follow-tags` for bigger bumps). The pushed `v*` tag triggers
+`.github/workflows/release.yml`, which builds the installers and publishes them as a GitHub Release.
+
 ## Tabs
 
 Each tab is its own Claude conversation with its own process. Tabs keep running in the background while you work in

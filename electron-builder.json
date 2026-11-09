@@ -5,6 +5,12 @@
   "npmRebuild": false,
   "asarUnpack": ["node_modules/@lydell/**"],
   "icon": "./src/assets/icon.png",
+  "publish": {
+    "provider": "github",
+    "owner": "dramlian",
+    "repo": "ClaudeManager",
+    "releaseType": "release"
+  },
   "win": {
     "target": ["portable", "nsis"]
   },
