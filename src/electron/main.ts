@@ -5,6 +5,7 @@ import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, shell } from 'ele
 import { pathToFileURL } from 'url';
 import { getPreloadPath, getUIPath, isDev } from './pathResolver.js';
 import { ClaudeSession, limit, runClaude } from './claudeSession.js';
+import { readClipboardForPaste, sweepPastes } from './clipboardPaste.js';
 
 const MAX_RECENT = 8;
 const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
@@ -169,6 +170,7 @@ app.whenReady().then(() => {
   // One Claude process per tab. Each belongs to the window showing it and keeps running in the
   // background until its tab is closed, its window is closed, or the app quits.
   const runtimeDir = ClaudeSession.setupRuntime();
+  sweepPastes();
   const sessions = new Map<string, ClaudeSession>();
   /** Tabs handed to a window that hasn't loaded yet (popped out), keyed by webContents id. */
   const pendingAdopt = new Map<number, AdoptTab[]>();
@@ -400,6 +402,7 @@ app.whenReady().then(() => {
 
   // ---------- Misc ----------
   ipcMain.handle('clipboard:read', guard(() => clipboard.readText()));
+  ipcMain.handle('clipboard:paste', guard(() => readClipboardForPaste()));
   ipcMain.on(
     'clipboard:write',
     guard((_e, text: string) => {
@@ -413,3 +416,4 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => app.quit());
+

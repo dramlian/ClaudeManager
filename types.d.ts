@@ -69,7 +69,14 @@ type AccountInfo = {
 /** What a tab runs: a normal conversation, or the interactive `claude auth login` flow. */
 type SessionMode = 'chat' | 'login';
 
-type FrameWindowAction = 'CLOSE' | 'MAXIMIZE' | 'MINIMIZE';
+/** Clipboard contents turned into something the terminal can paste. */
+type ClipboardPaste = {
+  kind: 'text' | 'image' | 'file' | 'empty';
+  /** Text to paste; for image/file, the (quoted if needed) file path. */
+  text: string;
+};
+
+type FrameWindowAction ='CLOSE' | 'MAXIMIZE' | 'MINIMIZE';
 
 type SessionStatus = {
   running: boolean;
@@ -102,6 +109,8 @@ interface Window {
     setWindowTitle: (title: string) => void;
     pickFolder: () => Promise<string | null>;
     clipboardRead: () => Promise<string>;
+    /** What Ctrl+V should type: clipboard text, or the path of a saved image / copied file. */
+    clipboardPaste: () => Promise<ClipboardPaste>;
     clipboardWrite: (text: string) => void;
     openInVSCode: (folder: string) => Promise<{ ok: boolean; error?: string }>;
     /** null when the folder is not inside a git repo. */

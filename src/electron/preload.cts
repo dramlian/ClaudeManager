@@ -24,6 +24,7 @@ electron.contextBridge.exposeInMainWorld('electron', {
   setWindowTitle: (title) => electron.ipcRenderer.send('window:title', title),
   pickFolder: () => electron.ipcRenderer.invoke('folder:pick'),
   clipboardRead: () => electron.ipcRenderer.invoke('clipboard:read'),
+  clipboardPaste: () => electron.ipcRenderer.invoke('clipboard:paste'),
   clipboardWrite: (text) => electron.ipcRenderer.send('clipboard:write', text),
   openInVSCode: (folder) => electron.ipcRenderer.invoke('vscode:open', folder),
   getGitBranch: (dir) => electron.ipcRenderer.invoke('git:branch', dir),

@@ -99,13 +99,13 @@ export function TerminalView({ tabId, cwd, attach, mode, active,status, ctx, rem
       window.electron.clipboardWrite(term.getSelection());
       term.clearSelection();
     };
-    // Paste text through xterm so bracketed-paste mode is respected. With no text on the
-    // clipboard, pass Ctrl+V through so Claude can try its own (image) paste.
+    // Paste through xterm so bracketed-paste mode is respected. Images (screenshots, copied
+    // pictures) are saved to a temp PNG by the main process and pasted as a path, which Claude
+    // attaches as [Image #N]; a file copied in Explorer pastes its path.
     const paste = async () => {
-      const text = await window.electron.clipboardRead();
-      if (disposed) return;
-      if (text) term.paste(text);
-      else window.electron.writeToPty(tabId, '\x16');
+      const clip = await window.electron.clipboardPaste();
+      if (disposed || !clip?.text) return;
+      term.paste(clip.kind === 'text' ? clip.text : `${clip.text} `);
     };
 
     term.attachCustomKeyEventHandler((e) => {
