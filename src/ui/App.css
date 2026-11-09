@@ -1151,6 +1151,63 @@ code {
   max-width: 260px;
   gap: 6px;
 }
+/* Narrow windows: keep the footer on one line. The folder name used to wrap at its hyphen and spill out of
+   the bar; now text never wraps, and the least important parts drop out as the footer gets tighter. */
+.session-footer {
+  container-type: inline-size;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.session-footer .crumb {
+  flex-shrink: 1;
+  min-width: 48px;
+}
+.session-footer .crumb-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.session-footer .crumb-path {
+  min-width: 0;
+  flex-shrink: 1000;
+}
+@container (max-width: 1250px) {
+  .session-footer .crumb-path {
+    display: none;
+  }
+}
+@container (max-width: 1050px) {
+  .session-footer .tokens,
+  .session-footer .stat-label,
+  .session-footer .context-label {
+    display: none;
+  }
+}
+@container (max-width: 860px) {
+  /* Icon-only buttons (their labels are bare text nodes; the title tooltip still names them). */
+  .session-footer .footer-btn {
+    font-size: 0;
+    gap: 0;
+    padding: 0 7px;
+  }
+  .session-footer .footer-btn .remote-dot {
+    margin-left: 5px;
+  }
+  .session-footer .bar {
+    width: 60px;
+  }
+}
+@container (max-width: 620px) {
+  .session-footer .bar,
+  .session-footer .branch {
+    display: none;
+  }
+}
+@container (max-width: 480px) {
+  .session-footer .stat:not(.branch) {
+    display: none;
+  }
+}
 .branch svg {
   width: 13px;
   height: 13px;
