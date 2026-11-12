@@ -169,6 +169,37 @@ async function fetchAccount(): Promise<AccountInfo | null> {
   }
 }
 
+/** Windows currently showing one of our own native modal dialogs (they legitimately disable it). */
+const ownModal = new Set<number>();
+
+/**
+ * Programs Claude runs can show a modal popup (a MessageBox, a credential or sign-in prompt) that
+ * picks our window as its owner: the foreground window, or the console's root owner since we
+ * reparent the pseudoconsole. Windows then disables the owner, which freezes the whole app (every
+ * tab) until the popup closes, and for good if the popup's process dies first (a tool timeout,
+ * Ctrl+C). Undo that right away: the popup stays on top of us, but the app keeps working.
+ */
+function keepEnabled(win: BrowserWindow) {
+  if (process.platform !== 'win32') return;
+  const WM_ENABLE = 0x000a;
+  let restoring = false;
+  win.hookWindowMessage(WM_ENABLE, (wParam) => {
+    if (restoring || wParam.readUInt32LE(0) !== 0) return; // being enabled, or our own toggle
+    setImmediate(() => {
+      if (win.isDestroyed() || ownModal.has(win.id)) return;
+      // Electron still thinks the window is enabled, so setEnabled(true) alone is a no-op:
+      // toggle to force the native EnableWindow call.
+      restoring = true;
+      try {
+        win.setEnabled(false);
+        win.setEnabled(true);
+      } finally {
+        restoring = false;
+      }
+    });
+  });
+}
+
 function isTrustedSender(frameUrl: string | undefined) {
   if (!frameUrl) return false;
   if (isDev()) return new URL(frameUrl).host === 'localhost:5123';
@@ -235,6 +266,7 @@ app.whenReady().then(() => {
     });
     const wcId = win.webContents.id;
     if (adopt?.length) pendingAdopt.set(wcId, adopt);
+    keepEnabled(win);
 
     win.once('ready-to-show', () => win.show());
     win.webContents.on('did-finish-load', () => pushUsage(win));
@@ -366,8 +398,18 @@ app.whenReady().then(() => {
   const pickDir = async (e: IpcEvent, title: string) => {
     const win = winOf(e);
     const opts: Electron.OpenDialogOptions = { title, properties: ['openDirectory'] };
-    const res = win ? await dialog.showOpenDialog(win, opts) : await dialog.showOpenDialog(opts);
-    return res.canceled ? null : res.filePaths[0];
+    if (!win) {
+      const res = await dialog.showOpenDialog(opts);
+      return res.canceled ? null : res.filePaths[0];
+    }
+    const id = win.id;
+    ownModal.add(id);
+    try {
+      const res = await dialog.showOpenDialog(win, opts);
+      return res.canceled ? null : res.filePaths[0];
+    } finally {
+      ownModal.delete(id);
+    }
   };
   ipcMain.handle('workspace:get', guard(() => readWorkspace()));
   ipcMain.handle(

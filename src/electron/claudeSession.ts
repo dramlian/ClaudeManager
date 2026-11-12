@@ -208,6 +208,7 @@ export class ClaudeSession {
   /** Report to a new window; returns what it needs to rebuild the terminal. */
   attach(target: WebContents) {
     this.target = target;
+    this.reparent();
     this.send('context:update', this.lastContext);
     this.send('remote:update', this.remote);
     return { status: this.status, history: this.history.join(''), ctx: this.lastContext, remote: this.remote };
@@ -276,6 +277,7 @@ export class ClaudeSession {
       useConptyDll: true,
     });
     this.proc = proc;
+    this.reparent();
 
     proc.onData((data) => {
       this.record(data);
@@ -292,6 +294,22 @@ export class ClaudeSession {
 
     if (mode === 'chat') this.watch();
     return { running: true, cwd };
+  }
+
+  /**
+   * Make the window showing this session the owner of the pseudoconsole's window, so popups that
+   * programs parent to the console (sign-in, credential prompts) open on top of us instead of
+   * hidden behind. Repeated when the tab moves to another window.
+   */
+  private reparent() {
+    if (!this.proc || !this.target || this.target.isDestroyed()) return;
+    const win = BrowserWindow.fromWebContents(this.target);
+    if (!win) return;
+    try {
+      this.proc.setParentWindow?.(win.getNativeWindowHandle());
+    } catch {
+      /* pty already gone */
+    }
   }
 
   write(data: string) {
