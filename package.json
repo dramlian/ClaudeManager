@@ -2,7 +2,7 @@
   "name": "claude-manager",
   "productName": "ClaudeManager",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "A sleek desktop wrapper around the Claude Code CLI",
   "author": "jankovdamian",
   "type": "module",
